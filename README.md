@@ -31,26 +31,6 @@ Deploys a **hardened OpenClaw installation** with:
 | **Secrets Management** | Manual generation | **Auto-gen with PERSISTENCE across runs** ⭐ |
 | **Access Control** | Token only | **Token + Manual Device Pairing** |
 
-## 🚀 Major Enhancements Beyond the Article
-
-### 1. **Persistent Secrets (No more Token Mismatch)** ⭐
-The playbook now checks for an existing `OPENCLAW_GATEWAY_TOKEN` and `LITELLM_MASTER_KEY` on the host before generating new ones. Once you log in to the dashboard, your session remains valid even after redeploying the stack.
-
-### 2. **Master Configuration (`openclaw.json`)**
-We have moved away from multiple YAML files. A single, schema-validated `openclaw.json` controls:
-- **Gateway:** Bindings, trusted proxies, and CORS origins.
-- **Agents:** Two-agent setup (**FileSentry** for read-only, **Coder** for development).
-- **Channels:** Global "Pairing" DM policy for Telegram, WhatsApp, etc.
-
-### 3. **Squid Proxy for Egress Control**
-**Not in the original guide.** Every outbound request from the OpenClaw container is inspected by a Squid proxy. 
-- **Default allowed:** Google, GitHub, NPM, Telegram, Discord, Slack, etc.
-- **Blocked:** Everything else. 
-- **Update:** Use `./update-allowlist.sh` to add new domains at runtime without downtime.
-
-### 4. **Caddy HTTPS Termination**
-Fixes the "Secure Context" browser issues. Caddy serves the dashboard over HTTPS using a self-signed certificate mapped to your agent's unique name.
-
 ## 📋 Prerequisites
 
 **Local Machine (Controller):**
