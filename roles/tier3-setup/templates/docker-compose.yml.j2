@@ -21,7 +21,6 @@ services:
     read_only: true
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=100m
-    mem_limit: 512m
     cpus: 1.0
 
   squid:
@@ -53,6 +52,11 @@ services:
       - ./openclaw-data/gateway.key:/home/node/.openclaw/gateway.key:ro
       - ./openclaw-ssh:/home/node/.ssh
       - ./workspace:/opt/openclaw/workspace
+{% if deploy_carlos | default(false) %}
+      - ./workspace-carlos:/opt/openclaw/workspace-carlos
+      - ./carlos-scripts:/opt/openclaw/carlos-scripts
+      - carlos-data:/home/node/carlos-dashboard
+{% endif %}
     working_dir: /home/node
     env_file: .env
     environment:
@@ -71,6 +75,40 @@ services:
     security_opt:
       - no-new-privileges:true
 
+{% if deploy_carlos | default(false) %}
+  carlos-dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile.dashboard
+    container_name: carlos-dashboard
+    restart: unless-stopped
+    ports:
+      - "{{ dashboard_port | default(8080) }}:8080"
+    networks:
+      - openclaw-internal
+      - openclaw-external
+    volumes:
+      - ./workspace-carlos/memory:/home/node/.openclaw/workspace-carlos/memory:rw
+      - carlos-data:/home/node/carlos-dashboard
+      - ./dashboard:/app:ro
+    environment:
+      - CARLOS_MEMORY_DIR=/home/node/.openclaw/workspace-carlos/memory
+      - CARLOS_DB=/home/node/carlos-dashboard/carlos.db
+      - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN}
+      - OPENCLAW_GATEWAY_HOST=openclaw
+      - OPENCLAW_GATEWAY_PORT=18789
+    depends_on:
+      - openclaw
+    security_opt:
+      - no-new-privileges:true
+    cpus: 0.5
+{% endif %}
+
+{% if deploy_carlos | default(false) %}
+volumes:
+  carlos-data:
+
+{% endif %}
 networks:
   openclaw-internal:
     driver: bridge
@@ -78,6 +116,6 @@ networks:
     ipam:
       config:
         - subnet: 172.28.0.0/16
-  
+
   openclaw-external:
     driver: bridge
