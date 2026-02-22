@@ -37,7 +37,7 @@ services:
       - openclaw-external
 
   openclaw:
-    build: 
+    build:
       context: .
       dockerfile: Dockerfile
     container_name: openclaw-agent
@@ -52,11 +52,11 @@ services:
       - ./openclaw-data/gateway.key:/home/node/.openclaw/gateway.key:ro
       - ./openclaw-ssh:/home/node/.ssh
       - ./workspace:/opt/openclaw/workspace
-{% if deploy_carlos | default(false) %}
-      - ./workspace-carlos:/opt/openclaw/workspace-carlos
-      - ./carlos-scripts:/opt/openclaw/carlos-scripts
-      - carlos-data:/home/node/carlos-dashboard
-{% endif %}
+{% for agent in active_agents %}
+{% for vol in agent.openclaw_volumes | default([]) %}
+      - {{ vol }}
+{% endfor %}
+{% endfor %}
     working_dir: /home/node
     env_file: .env
     environment:
@@ -75,25 +75,27 @@ services:
     security_opt:
       - no-new-privileges:true
 
-{% if deploy_carlos | default(false) %}
-  carlos-dashboard:
+{% for agent in active_agents %}
+{% if agent.dashboard is defined %}
+  {{ agent.dashboard.container_name }}:
     build:
       context: .
-      dockerfile: Dockerfile.dashboard
-    container_name: carlos-dashboard
+      dockerfile: {{ agent.dashboard.dockerfile }}
+    container_name: {{ agent.dashboard.container_name }}
     restart: unless-stopped
     ports:
-      - "{{ dashboard_port | default(8080) }}:8080"
+      - "{{ agent.dashboard.port }}:8080"
     networks:
       - openclaw-internal
       - openclaw-external
     volumes:
-      - ./workspace-carlos/memory:/home/node/.openclaw/workspace-carlos/memory:rw
-      - carlos-data:/home/node/carlos-dashboard
-      - ./dashboard:/app:ro
+      - ./{{ agent.workspace }}/memory:/home/node/.openclaw/{{ agent.workspace }}/memory:rw
+      - {{ agent.id }}-data:/home/node/{{ agent.id }}-dashboard
+      - ./{{ agent.dashboard_dir }}:/app:ro
     environment:
-      - CARLOS_MEMORY_DIR=/home/node/.openclaw/workspace-carlos/memory
-      - CARLOS_DB=/home/node/carlos-dashboard/carlos.db
+{% for key, value in agent.dashboard.extra_env.items() %}
+      - {{ key }}={{ value }}
+{% endfor %}
       - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN}
       - OPENCLAW_GATEWAY_HOST=openclaw
       - OPENCLAW_GATEWAY_PORT=18789
@@ -102,11 +104,22 @@ services:
     security_opt:
       - no-new-privileges:true
     cpus: 0.5
-{% endif %}
 
-{% if deploy_carlos | default(false) %}
+{% endif %}
+{% endfor %}
+{% set ns = namespace(has_volumes=false) %}
+{% for agent in active_agents %}
+{% if agent.named_volumes | default([]) | length > 0 %}
+{% set ns.has_volumes = true %}
+{% endif %}
+{% endfor %}
+{% if ns.has_volumes %}
 volumes:
-  carlos-data:
+{% for agent in active_agents %}
+{% for vol in agent.named_volumes | default([]) %}
+  {{ vol }}:
+{% endfor %}
+{% endfor %}
 
 {% endif %}
 networks:

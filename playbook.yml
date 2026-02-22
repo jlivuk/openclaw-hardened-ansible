@@ -84,13 +84,18 @@
           args:
             creates: "ssh-keys/{{ generated_hostname }}.pem"
         
+        - name: Resolve target IP for SSL SAN
+          set_fact:
+            target_resolved_ip: "{{ lookup('pipe', 'python3 -c \"import socket; print(socket.gethostbyname(\\\"' + groups['all'][0] + '\\\"))\"') }}"
+          ignore_errors: true
+
         - name: Generate Self-Signed SSL Certificate Locally
           command: >
             openssl req -x509 -newkey rsa:4096 -sha256 -days 3650 -nodes
             -keyout "ssh-keys/{{ generated_hostname }}.key"
             -out "ssh-keys/{{ generated_hostname }}.crt"
             -subj "/CN={{ generated_hostname }}"
-            -addext "subjectAltName=DNS:{{ generated_hostname }},DNS:localhost,IP:{{ groups['all'][0] }},IP:127.0.0.1"
+            -addext "subjectAltName=DNS:{{ generated_hostname }},DNS:localhost,DNS:{{ groups['all'][0] }},IP:{{ target_resolved_ip | default('127.0.0.1') }},IP:127.0.0.1"
           args:
             creates: "ssh-keys/{{ generated_hostname }}.crt"
 

@@ -1,0 +1,65 @@
+id: carlos
+name: Carlos
+enabled: true
+
+# Dashboard container
+dashboard:
+  port: 8080
+  container_name: carlos-dashboard
+  dockerfile: Dockerfile.carlos
+  extra_env:
+    CARLOS_DATA_DIR: /home/node/carlos-dashboard
+    CARLOS_MEMORY_BASE: /home/node/.openclaw/workspace-carlos/memory
+
+# Paths (relative to docker_dir on the Pi)
+workspace: workspace-carlos
+scripts_dir: carlos-scripts
+dashboard_dir: dashboard
+
+# OpenClaw agent entry (injected into openclaw.json agents.list)
+openclaw_agent:
+  workspace: /opt/openclaw/workspace-carlos
+  agentDir: /opt/openclaw/agents/carlos
+  heartbeat:
+    every: 5m
+
+# Channel bindings (injected into openclaw.json bindings)
+bindings:
+  - channel: telegram
+    accountId: carlos
+
+# Execution policy (injected into exec-approvals.json agents)
+exec_approvals:
+  security: allowlist
+  ask: "off"
+  allowlist:
+    - pattern: /usr/bin/sqlite3
+    - pattern: /opt/openclaw/carlos-scripts/*.sh
+    - pattern: /usr/bin/ls
+    - pattern: /bin/ls
+    - pattern: /usr/bin/cat
+    - pattern: /bin/cat
+    - pattern: /usr/bin/date
+    - pattern: /bin/date
+    - pattern: /usr/bin/wc
+
+# Extra domains for Squid allowlist
+allowed_domains:
+  - api.notion.so
+  - www.strava.com
+  - api.openai.com
+
+# Extra volume mounts on the openclaw gateway container
+openclaw_volumes:
+  - "./workspace-carlos:/opt/openclaw/workspace-carlos"
+  - "./carlos-scripts:/opt/openclaw/carlos-scripts"
+  - "carlos-data:/home/node/carlos-dashboard"
+
+# Named Docker volumes
+named_volumes:
+  - carlos-data
+
+# Extra allowed origins for openclaw.json gateway
+gateway_origins:
+  - "http://openclaw:18789"
+  - "ws://openclaw:18789"

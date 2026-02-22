@@ -13,8 +13,13 @@
       "host.containers.internal"
     ],
     "controlUi": {
+{% if active_agents | length > 0 %}
+      "dangerouslyDisableDeviceAuth": true,
+      "allowInsecureAuth": true,
+{% else %}
       "dangerouslyDisableDeviceAuth": false,
       "allowInsecureAuth": false,
+{% endif %}
       "allowedOrigins": [
         "https://{{ groups['all'][0] }}:18789",
         "https://{{ target_hostname }}:18789",
@@ -22,6 +27,11 @@
         "http://localhost:18789",
         "http://127.0.0.1:18789",
         "https://127.0.0.1:18789"
+{% for agent in active_agents %}
+{% for origin in agent.gateway_origins | default([]) %}
+        ,"{{ origin }}"
+{% endfor %}
+{% endfor %}
       ]
     },
     "auth": {
@@ -72,6 +82,30 @@
         "id": "dev",
         "name": "Coder"
       }
+{% for agent in active_agents %}
+      ,{
+        "id": "{{ agent.id }}",
+        "name": "{{ agent.name }}",
+        "workspace": "{{ agent.openclaw_agent.workspace }}",
+        "agentDir": "{{ agent.openclaw_agent.agentDir }}",
+        "heartbeat": {{ agent.openclaw_agent.heartbeat | to_json }}
+      }
+{% endfor %}
     ]
   }
+{% if active_agents | selectattr('bindings', 'defined') | list | length > 0 %}
+  ,"bindings": [
+{% set ns = namespace(first=true) %}
+{% for agent in active_agents %}
+{% for binding in agent.bindings | default([]) %}
+{% if not ns.first %}    ,{% endif %}
+    {
+      "agentId": "{{ agent.id }}",
+      "match": { "channel": "{{ binding.channel }}", "accountId": "{{ binding.accountId }}" }
+    }
+{% set ns.first = false %}
+{% endfor %}
+{% endfor %}
+  ]
+{% endif %}
 }

@@ -44,6 +44,7 @@
     name: podman-compose
     state: present
     executable: pip3
+    extra_args: --break-system-packages
 
 # Tailscale Installation
 - name: Add Tailscale GPG Key

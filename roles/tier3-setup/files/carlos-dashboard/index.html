@@ -1,0 +1,2260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Carlos, Your Fitness Agent</title>
+<style>
+  :root { --bg: #0d1117; --surface: #161b22; --border: #30363d; --text: #e6edf3; --muted: #8b949e; --green: #3fb950; --blue: #58a6ff; --orange: #d29922; --red: #f85149; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); padding: 20px; max-width: 800px; margin: 0 auto; }
+  h1 { font-size: 1.6em; margin-bottom: 4px; }
+  .subtitle { color: var(--muted); margin-bottom: 24px; font-size: 0.9em; }
+  .nav { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
+  .nav button { background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 0.85em; }
+  .nav button:hover { border-color: var(--blue); }
+  .nav button.active { background: var(--blue); border-color: var(--blue); color: #fff; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-bottom: 12px; }
+  .card h2 { font-size: 1.1em; margin-bottom: 8px; }
+  .card h3 { font-size: 0.95em; color: var(--blue); margin: 12px 0 6px; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.85em; margin: 8px 0; }
+  th { text-align: left; color: var(--muted); font-weight: 500; padding: 6px 8px; border-bottom: 1px solid var(--border); }
+  td { padding: 6px 8px; border-bottom: 1px solid var(--border); }
+  .stat-row { display: flex; gap: 12px; flex-wrap: wrap; margin: 8px 0; }
+  .stat { background: var(--bg); padding: 10px 14px; border-radius: 6px; flex: 1; min-width: 100px; }
+  .stat .label { font-size: 0.75em; color: var(--muted); text-transform: uppercase; }
+  .stat .value { font-size: 1.3em; font-weight: 600; margin-top: 2px; }
+  .stat .value.green { color: var(--green); }
+  .stat .value.blue { color: var(--blue); }
+  .stat .value.orange { color: var(--orange); }
+  .stat .value.red { color: var(--red); }
+  .stat .sub { font-size: 0.65em; color: var(--muted); font-weight: 400; margin-top: 2px; }
+  .deficit { color: var(--green); }
+  .surplus { color: var(--red); }
+  .empty { color: var(--muted); text-align: center; padding: 40px; }
+  .empty-state { text-align: center; padding: 32px 24px; }
+  .empty-state .empty-icon { font-size: 2em; color: var(--border); margin-bottom: 12px; font-family: monospace; line-height: 1; }
+  .empty-state .empty-heading { font-size: 1em; font-weight: 600; color: var(--text); margin-bottom: 8px; }
+  .empty-state .empty-text { font-size: 0.85em; color: var(--muted); line-height: 1.5; margin-bottom: 16px; max-width: 360px; margin-left: auto; margin-right: auto; }
+  .empty-state .empty-cta { display: inline-block; background: var(--blue); color: #fff; border: none; padding: 10px 20px; border-radius: 6px; font-size: 0.85em; cursor: pointer; font-weight: 500; }
+  .empty-state .empty-cta:hover { opacity: 0.9; }
+  .empty-state .empty-hint { display: block; font-size: 0.8em; color: var(--muted); margin-top: 10px; font-family: monospace; background: var(--bg); padding: 8px 12px; border-radius: 4px; border: 1px solid var(--border); }
+  .loading { color: var(--muted); text-align: center; padding: 40px; }
+  .weight-chart { position: relative; height: 160px; margin: 12px 0; background: var(--bg); border-radius: 6px; overflow: hidden; }
+  .weight-chart canvas { width: 100%; height: 100%; }
+  .range-row { display: flex; gap: 6px; margin-bottom: 16px; }
+  .range-btn { padding: 4px 12px; border: 1px solid var(--border); border-radius: 4px; background: transparent; color: var(--muted); font-size: 0.8em; font-family: inherit; cursor: pointer; transition: all 0.2s; }
+  .range-btn.active { background: var(--blue); color: #fff; border-color: var(--blue); }
+  .range-btn:hover:not(.active) { border-color: var(--text); color: var(--text); }
+  .weight-change { font-size: 0.8em; margin-top: 4px; }
+  .weight-change.down { color: var(--green); }
+  .weight-change.up { color: var(--red); }
+  .weight-change.flat { color: var(--muted); }
+  .tab-row { display: flex; gap: 8px; margin-bottom: 16px; }
+  .tab-row button { background: var(--surface); border: 1px solid var(--border); color: var(--muted); padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 0.85em; }
+  .tab-row button.active { color: var(--text); border-color: var(--blue); }
+  .progress-bar { background: var(--bg); border-radius: 4px; height: 8px; margin: 4px 0 8px; overflow: hidden; }
+  .progress-fill { height: 100%; border-radius: 4px; transition: width 0.3s; }
+  .progress-label { display: flex; justify-content: space-between; font-size: 0.8em; color: var(--muted); }
+  .progress-label .current { color: var(--text); font-weight: 500; }
+  .health-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; margin: 8px 0; }
+  .health-item { background: var(--bg); padding: 10px; border-radius: 6px; }
+  .health-item .label { font-size: 0.7em; color: var(--muted); text-transform: uppercase; }
+  .health-item .value { font-size: 1.2em; font-weight: 600; margin-top: 2px; }
+  .week-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin: 8px 0; }
+  .week-day { background: var(--bg); padding: 8px 4px; border-radius: 4px; text-align: center; font-size: 0.75em; }
+  .week-day .day-label { color: var(--muted); margin-bottom: 4px; }
+  .week-day .day-cal { font-weight: 600; font-size: 1.1em; }
+  .week-day.active { border: 1px solid var(--blue); }
+  .week-day.missed { opacity: 0.4; }
+
+  /* Login */
+  .login-screen { display: flex; align-items: center; justify-content: center; min-height: 80vh; }
+  .login-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 32px; width: 100%; max-width: 360px; }
+  .login-card h2 { text-align: center; margin-bottom: 20px; }
+  .login-card input { width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 10px 14px; border-radius: 6px; font-size: 0.9em; margin-bottom: 12px; outline: none; }
+  .login-card input:focus { border-color: var(--blue); }
+  .login-card button { width: 100%; background: var(--blue); border: none; color: #fff; padding: 10px; border-radius: 6px; font-size: 0.9em; cursor: pointer; }
+  .login-card button:disabled { opacity: 0.5; }
+  .login-error { color: var(--red); font-size: 0.85em; margin-bottom: 12px; text-align: center; }
+  .user-bar { display: flex; align-items: center; gap: 8px; justify-content: flex-end; margin-bottom: 12px; font-size: 0.85em; color: var(--muted); }
+  .user-bar button { background: none; border: 1px solid var(--border); color: var(--muted); padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 0.8em; }
+  .user-bar button:hover { border-color: var(--red); color: var(--red); }
+  .user-bar button.pw-btn:hover { border-color: var(--blue); color: var(--blue); }
+  .user-bar button.settings-btn:hover { border-color: var(--green); color: var(--green); }
+
+  /* Change Password Modal */
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 2000; align-items: center; justify-content: center; }
+  .modal-overlay.open { display: flex; }
+  .modal-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 28px; width: 100%; max-width: 360px; }
+  .modal-card h2 { text-align: center; margin-bottom: 16px; font-size: 1.1em; }
+  .modal-card input { width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 10px 14px; border-radius: 6px; font-size: 0.9em; margin-bottom: 10px; outline: none; }
+  .modal-card input:focus { border-color: var(--blue); }
+  #settingsModal select { width: 100%; padding: 8px; background: var(--bg); border: 1px solid var(--border); color: var(--text); font-family: inherit; font-size: 0.95em; }
+  .modal-card .modal-btns { display: flex; gap: 8px; margin-top: 4px; }
+  .modal-card .modal-btns button { flex: 1; padding: 10px; border-radius: 6px; font-size: 0.9em; cursor: pointer; }
+  .modal-card .modal-btns .btn-primary { background: var(--blue); border: none; color: #fff; }
+  .modal-card .modal-btns .btn-primary:disabled { opacity: 0.5; }
+  .modal-card .modal-btns .btn-cancel { background: none; border: 1px solid var(--border); color: var(--muted); }
+  .modal-msg { font-size: 0.85em; text-align: center; margin-bottom: 10px; }
+  .modal-msg.error { color: var(--red); }
+  .modal-msg.success { color: var(--green); }
+
+  /* Welcome / Onboarding Modal */
+  .welcome-step { display: none; }
+  .welcome-step.active { display: block; }
+  .welcome-steps-indicator { display: flex; gap: 8px; justify-content: center; margin: 16px 0; }
+  .welcome-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border); transition: background 0.2s; }
+  .welcome-dot.active { background: var(--blue); }
+  .welcome-dot.completed { background: var(--green); }
+  .welcome-content { padding: 8px 0; }
+  .welcome-content h2 { font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace; font-size: 1.15em; text-align: center; margin-bottom: 12px; color: var(--text); }
+  .welcome-content p { font-size: 0.9em; color: var(--muted); line-height: 1.6; text-align: center; margin-bottom: 12px; }
+  .welcome-item { background: var(--bg); border: 1px solid var(--border); padding: 12px 14px; margin-bottom: 8px; }
+  .welcome-item-title { font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace; font-size: 0.85em; font-weight: 600; color: var(--green); margin-bottom: 4px; }
+  .welcome-item-desc { font-size: 0.82em; color: var(--muted); line-height: 1.5; }
+  .welcome-example { font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace; font-size: 0.82em; background: var(--bg); border: 1px solid var(--border); padding: 10px 14px; color: var(--text); text-align: center; margin: 12px 0; }
+  .welcome-btn { display: block; width: 100%; padding: 12px; font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace; font-size: 0.9em; font-weight: 600; border: none; cursor: pointer; text-transform: uppercase; letter-spacing: 0.5px; }
+  .welcome-btn-primary { background: var(--green); color: #000; }
+  .welcome-btn-primary:hover { opacity: 0.9; }
+  .welcome-btn-secondary { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
+  .welcome-btn-secondary:hover { border-color: var(--green); }
+
+  /* Chat Widget */
+  .chat-fab { position: fixed; bottom: 24px; right: 24px; width: 56px; height: 56px; border-radius: 50%; background: var(--blue); border: none; color: #fff; font-size: 24px; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.4); z-index: 1000; display: flex; align-items: center; justify-content: center; transition: transform 0.2s; }
+  .chat-fab:hover { transform: scale(1.1); }
+  .feedback-fab { position: fixed; bottom: 24px; left: 24px; height: 36px; padding: 0 14px; border-radius: 18px; background: var(--surface); border: 1px solid var(--border); color: var(--muted); font-size: 0.8em; font-family: inherit; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.3); z-index: 1000; display: flex; align-items: center; gap: 6px; transition: transform 0.2s; }
+  .feedback-fab:hover { transform: scale(1.05); border-color: var(--green); color: var(--green); }
+  .chat-panel { position: fixed; bottom: 90px; right: 24px; width: 360px; max-height: 500px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.5); z-index: 1000; display: none; flex-direction: column; overflow: hidden; }
+  .chat-panel.open { display: flex; }
+  .chat-header { padding: 12px 16px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+  .chat-header h3 { font-size: 0.95em; margin: 0; }
+  .chat-header button { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 1.2em; padding: 0 4px; }
+  .chat-messages { flex: 1; overflow-y: auto; padding: 12px 16px; min-height: 200px; max-height: 360px; display: flex; flex-direction: column; gap: 8px; }
+  .chat-msg { max-width: 85%; padding: 8px 12px; border-radius: 12px; font-size: 0.85em; line-height: 1.4; word-wrap: break-word; }
+  .chat-msg.user { align-self: flex-end; background: var(--blue); color: #fff; border-bottom-right-radius: 4px; }
+  .chat-msg.carlos { align-self: flex-start; background: var(--bg); color: var(--text); border-bottom-left-radius: 4px; display: flex; gap: 8px; align-items: flex-start; }
+  .chat-msg.carlos .carlos-avatar { width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0; margin-top: 2px; }
+  .chat-msg.typing { align-self: flex-start; background: var(--bg); color: var(--muted); font-style: italic; }
+  .chat-input-row { display: flex; gap: 8px; padding: 12px; border-top: 1px solid var(--border); }
+  .chat-input-row input { flex: 1; background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 8px 12px; border-radius: 8px; font-size: 0.85em; outline: none; }
+  .chat-input-row input:focus { border-color: var(--blue); }
+  .chat-input-row button { background: var(--blue); border: none; color: #fff; padding: 8px 14px; border-radius: 8px; cursor: pointer; font-size: 0.85em; white-space: nowrap; }
+  .chat-input-row button:disabled { opacity: 0.5; cursor: not-allowed; }
+  .chat-photo-btn { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 1.2em; padding: 6px; border-radius: 6px; display: flex; align-items: center; }
+  .chat-photo-btn:hover { color: var(--blue); background: var(--bg); }
+  .chat-preview { position: relative; margin: 0 12px 8px; padding: 8px; background: var(--bg); border-radius: 8px; display: none; }
+  .chat-preview.active { display: flex; align-items: center; gap: 8px; }
+  .chat-preview img { max-height: 60px; max-width: 80px; border-radius: 4px; object-fit: cover; }
+  .chat-preview .remove-preview { background: none; border: none; color: var(--red); cursor: pointer; font-size: 1em; padding: 2px 6px; }
+  .chat-preview .preview-label { font-size: 0.75em; color: var(--muted); flex: 1; }
+  .chat-msg img.chat-thumb { max-width: 200px; max-height: 150px; border-radius: 6px; margin-top: 4px; display: block; }
+  /* Health Insights */
+  .insight-row { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; border-radius: 6px; margin-bottom: 6px; font-size: 0.85em; background: var(--bg); }
+  .insight-row .insight-dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 5px; flex-shrink: 0; }
+  .insight-row.positive .insight-dot { background: var(--green); }
+  .insight-row.caution .insight-dot { background: var(--orange); }
+  .insight-row.concern .insight-dot { background: var(--red); }
+  .insight-row .insight-text { font-weight: 500; }
+  .insight-row .insight-detail { font-size: 0.85em; color: var(--muted); margin-top: 2px; }
+  .insight-row.positive .insight-text { color: var(--green); }
+  .insight-row.caution .insight-text { color: var(--orange); }
+  .insight-row.concern .insight-text { color: var(--red); }
+  .ask-carlos-btn { display: inline-flex; align-items: center; gap: 8px; background: var(--surface); border: 1px solid var(--blue); color: var(--blue); padding: 10px 18px; border-radius: 8px; cursor: pointer; font-size: 0.85em; margin-top: 8px; transition: background 0.2s; }
+  .ask-carlos-btn:hover { background: var(--blue); color: #fff; }
+  .ask-carlos-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .carlos-insight-response { background: var(--bg); border-left: 3px solid var(--blue); border-radius: 6px; padding: 14px 16px; margin-top: 10px; font-size: 0.85em; line-height: 1.6; }
+  .carlos-insight-response p { margin: 0 0 8px; }
+  .carlos-insight-response p:last-child { margin-bottom: 0; }
+  .carlos-insight-response strong { color: var(--blue); }
+  .carlos-insight-response ul, .carlos-insight-response ol { margin: 4px 0 8px 20px; padding: 0; }
+  .carlos-insight-response li { margin-bottom: 4px; }
+  .carlos-insight-response h3, .carlos-insight-response h4 { font-size: 0.95em; color: var(--blue); margin: 10px 0 4px; }
+  .carlos-insight-response code { background: var(--surface); padding: 1px 5px; border-radius: 3px; font-size: 0.9em; }
+
+  /* Admin Panel */
+  .admin-toolbar { display: flex; gap: 8px; margin-bottom: 16px; align-items: center; }
+  .admin-toolbar button { background: var(--blue); border: none; color: #fff; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 0.85em; }
+  .admin-toolbar button:hover { opacity: 0.9; }
+  .admin-table { width: 100%; border-collapse: collapse; font-size: 0.85em; }
+  .admin-table th { text-align: left; color: var(--muted); font-weight: 500; padding: 8px; border-bottom: 1px solid var(--border); }
+  .admin-table td { padding: 8px; border-bottom: 1px solid var(--border); }
+  .admin-table tr:hover { background: rgba(255,255,255,0.03); }
+  .role-badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 0.75em; font-weight: 600; text-transform: uppercase; }
+  .role-badge.admin { background: rgba(88,166,255,0.15); color: var(--blue); }
+  .role-badge.user { background: rgba(63,185,80,0.15); color: var(--green); }
+  .role-badge.readonly { background: rgba(139,148,158,0.15); color: var(--muted); }
+  .admin-actions { display: flex; gap: 4px; }
+  .admin-actions button { background: var(--bg); border: 1px solid var(--border); color: var(--muted); padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 0.8em; }
+  .admin-actions button:hover { border-color: var(--blue); color: var(--blue); }
+  .admin-actions button.danger:hover { border-color: var(--red); color: var(--red); }
+
+  @media (max-width: 480px) { .chat-panel { width: calc(100vw - 32px); right: 16px; bottom: 84px; } }
+</style>
+</head>
+<body>
+
+<!-- Login Screen -->
+<div class="login-screen" id="loginScreen">
+  <div class="login-card">
+    <div style="text-align:center;margin-bottom:16px">
+      <img src="/carlos-logo.png" alt="Carlos" style="width:64px;height:64px;border-radius:50%;border:2px solid var(--blue)">
+    </div>
+    <h2>Sign in to Carlos</h2>
+    <div class="login-error" id="loginError" style="display:none"></div>
+    <input type="text" id="loginUser" placeholder="Username" autocomplete="username" autofocus>
+    <input type="password" id="loginPass" placeholder="Password" autocomplete="current-password">
+    <button id="loginBtn" onclick="doLogin()">Sign In</button>
+  </div>
+</div>
+
+<!-- Dashboard (hidden until authenticated) -->
+<div id="dashboard" style="display:none">
+
+<div class="user-bar">
+  <span id="userDisplay"></span>
+  <button class="settings-btn" id="settingsBtn" onclick="openSettings()">Settings</button>
+  <button class="pw-btn" onclick="openChangePassword()">Change Password</button>
+  <button onclick="doLogout()">Sign Out</button>
+</div>
+
+<div style="display:flex;align-items:center;gap:14px;margin-bottom:4px">
+  <img src="/carlos-logo.png" alt="Carlos" style="width:56px;height:56px;border-radius:50%;border:2px solid var(--blue)">
+  <div>
+    <h1 style="margin:0">Carlos, Your Fitness Agent</h1>
+    <p class="subtitle" style="margin:0">Daily fitness & nutrition tracking</p>
+  </div>
+</div>
+
+<div class="tab-row">
+  <button class="active" onclick="switchTab('overview')">Overview</button>
+  <button onclick="switchTab('nutrition')">Nutrition</button>
+  <button onclick="switchTab('weight')">Weight</button>
+  <button onclick="switchTab('exercise')">Exercise</button>
+  <button onclick="switchTab('sleep')">Sleep</button>
+</div>
+<div id="overview-tab">
+  <div id="overview-content"><div class="loading">Loading summary...</div></div>
+</div>
+<div id="nutrition-tab" style="display:none">
+  <div class="nav" id="nav"></div>
+  <div id="content"><div class="loading">Loading logs...</div></div>
+</div>
+<div id="weight-tab" style="display:none">
+  <div id="weight-content"><div class="loading">Loading weight data...</div></div>
+</div>
+<div id="exercise-tab" style="display:none">
+  <div id="exercise-content"><div class="loading">Loading exercise data...</div></div>
+</div>
+<div id="sleep-tab" style="display:none">
+  <div id="sleep-content"><div class="loading">Loading sleep data...</div></div>
+</div>
+<div id="admin-tab" style="display:none">
+  <div id="admin-content"><div class="loading">Loading users...</div></div>
+</div>
+
+<!-- Admin Modal (add/edit/reset-password) -->
+<div class="modal-overlay" id="adminModal">
+  <div class="modal-card">
+    <h2 id="adminModalTitle">Add User</h2>
+    <div class="modal-msg" id="adminMsg" style="display:none"></div>
+    <div id="adminModalFields"></div>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeAdminModal()">Cancel</button>
+      <button class="btn-primary" id="adminSubmit">Submit</button>
+    </div>
+  </div>
+</div>
+
+<!-- Change Password Modal -->
+<div class="modal-overlay" id="pwModal">
+  <div class="modal-card">
+    <h2>Change Password</h2>
+    <div class="modal-msg" id="pwMsg" style="display:none"></div>
+    <input type="password" id="pwCurrent" placeholder="Current password" autocomplete="current-password">
+    <input type="password" id="pwNew" placeholder="New password (min 6 chars)" autocomplete="new-password">
+    <input type="password" id="pwConfirm" placeholder="Confirm new password" autocomplete="new-password">
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeChangePassword()">Cancel</button>
+      <button class="btn-primary" id="pwSubmit" onclick="submitChangePassword()">Update</button>
+    </div>
+  </div>
+</div>
+
+<!-- Settings Modal -->
+<div class="modal-overlay" id="settingsModal">
+  <div class="modal-card">
+    <h2>Settings</h2>
+    <div class="modal-msg" id="settingsMsg" style="display:none"></div>
+    <div style="margin-bottom:10px">
+      <div style="font-size:0.8em;color:var(--muted);margin-bottom:4px">Daily Calorie Goal</div>
+      <input type="number" id="settings-cal-goal" placeholder="e.g. 2000" min="0" step="50">
+    </div>
+    <div style="margin-bottom:10px">
+      <div style="font-size:0.8em;color:var(--muted);margin-bottom:4px">Daily Protein Goal (g)</div>
+      <input type="number" id="settings-protein-goal" placeholder="e.g. 150" min="0" step="5">
+    </div>
+    <div style="margin-bottom:10px">
+      <div style="font-size:0.8em;color:var(--muted);margin-bottom:4px">Daily Check-In Time</div>
+      <select id="settings-checkin-time">
+        <option value="">Default (6:00 PM)</option>
+        <option value="12">12:00 PM</option>
+        <option value="13">1:00 PM</option>
+        <option value="14">2:00 PM</option>
+        <option value="15">3:00 PM</option>
+        <option value="16">4:00 PM</option>
+        <option value="17">5:00 PM</option>
+        <option value="18">6:00 PM</option>
+        <option value="19">7:00 PM</option>
+        <option value="20">8:00 PM</option>
+        <option value="21">9:00 PM</option>
+        <option value="22">10:00 PM</option>
+      </select>
+    </div>
+    <div style="border-top:1px solid var(--border);margin:16px 0 12px;padding-top:14px">
+      <div style="font-size:0.9em;font-weight:600;margin-bottom:8px">Meal Templates</div>
+      <div id="templateList" style="margin-bottom:10px"></div>
+      <button onclick="addTemplateForm()" style="background:none;border:1px solid var(--border);color:var(--blue);padding:6px 14px;border-radius:6px;cursor:pointer;font-size:0.85em;font-family:inherit">+ Add Template</button>
+    </div>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeSettings()">Cancel</button>
+      <button class="btn-primary" id="settingsSave" onclick="saveSettings()">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="feedbackModal">
+  <div class="modal-card">
+    <h2>Send Feedback</h2>
+    <div class="modal-msg" id="feedbackMsg" style="display:none"></div>
+    <div style="margin-bottom:10px">
+      <div style="font-size:0.8em;color:var(--muted);margin-bottom:4px">Category</div>
+      <select id="feedback-category" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:10px 14px;border-radius:6px;font-size:0.9em">
+        <option value="bug">Bug Report</option>
+        <option value="feature">Feature Request</option>
+        <option value="other">Other</option>
+      </select>
+    </div>
+    <div style="margin-bottom:10px">
+      <div style="font-size:0.8em;color:var(--muted);margin-bottom:4px">Your Feedback</div>
+      <textarea id="feedback-message" placeholder="Describe the bug or feature idea..." rows="4" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:10px 14px;border-radius:6px;font-size:0.9em;resize:vertical;font-family:inherit"></textarea>
+    </div>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeFeedback()">Cancel</button>
+      <button class="btn-primary" id="feedbackSubmit" onclick="submitFeedback()">Send</button>
+    </div>
+  </div>
+</div>
+
+<!-- Welcome / Onboarding Modal -->
+<div class="modal-overlay" id="welcomeModal">
+  <div class="modal-card" style="max-width:420px">
+    <div class="welcome-content">
+
+      <!-- Step 1: Welcome -->
+      <div class="welcome-step active" id="welcomeStep1">
+        <h2>Carlos</h2>
+        <p>Your personal fitness tracking assistant. Carlos logs your meals, monitors your workouts, and helps you stay on target -- all through natural conversation.</p>
+        <p style="font-size:0.82em;color:var(--muted)">No complicated forms. Just tell Carlos what you ate or what you did, and he handles the rest.</p>
+        <button class="welcome-btn welcome-btn-primary" onclick="welcomeNext(2)">GET STARTED</button>
+      </div>
+
+      <!-- Step 2: Next Steps -->
+      <div class="welcome-step" id="welcomeStep2">
+        <h2>How it works</h2>
+        <div class="welcome-item">
+          <div class="welcome-item-title">1. Chat with Carlos</div>
+          <div class="welcome-item-desc">Describe your meals, log workouts, or ask about your progress. Carlos understands natural language.</div>
+        </div>
+        <div class="welcome-item">
+          <div class="welcome-item-title">2. Set your goals</div>
+          <div class="welcome-item-desc">Ask Carlos to set calorie, protein, or exercise targets. He will track your progress against them.</div>
+        </div>
+        <div class="welcome-item">
+          <div class="welcome-item-title">3. Track your trends</div>
+          <div class="welcome-item-desc">Check the Overview tab for weekly summaries, Apple Health data, and progress toward your goals.</div>
+        </div>
+        <button class="welcome-btn welcome-btn-primary" onclick="welcomeNext(3)">NEXT</button>
+      </div>
+
+      <!-- Step 3: Try It -->
+      <div class="welcome-step" id="welcomeStep3">
+        <h2>Try it now</h2>
+        <p>Send Carlos your first message. Describe a meal, a workout, or ask a question.</p>
+        <div class="welcome-example">"I just had scrambled eggs and toast for breakfast"</div>
+        <p style="font-size:0.82em">Carlos will estimate the calories, protein, carbs, and fat -- and log it automatically.</p>
+        <button class="welcome-btn welcome-btn-primary" onclick="completeOnboarding()">START TRACKING</button>
+      </div>
+
+      <!-- Step Indicator -->
+      <div class="welcome-steps-indicator" id="welcomeDots">
+        <div class="welcome-dot active"></div>
+        <div class="welcome-dot"></div>
+        <div class="welcome-dot"></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+</div><!-- /dashboard -->
+
+<script>
+// --- HTML escape helper (prevents XSS in innerHTML) ---
+function esc(s) { return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+function escUrl(s) { try { const u = new URL(String(s)); return ['http:','https:'].includes(u.protocol) ? esc(s) : ''; } catch { return ''; } }
+
+// --- Auth helpers ---
+function getToken() { return localStorage.getItem('carlos_token'); }
+function setToken(token) { localStorage.setItem('carlos_token', token); }
+function clearToken() { localStorage.removeItem('carlos_token'); localStorage.removeItem('carlos_user'); localStorage.removeItem('carlos_role'); }
+
+async function apiFetch(url, opts = {}) {
+  const token = getToken();
+  if (!token) { doLogout(); throw new Error('Not authenticated'); }
+  const headers = { ...(opts.headers || {}) };
+  headers['Authorization'] = 'Bearer ' + token;
+  const res = await fetch(url, { ...opts, headers });
+  if (res.status === 401) { doLogout(); throw new Error('Session expired'); }
+  return res;
+}
+
+async function doLogin() {
+  const user = document.getElementById('loginUser').value.trim();
+  const pass = document.getElementById('loginPass').value;
+  const errEl = document.getElementById('loginError');
+  const btn = document.getElementById('loginBtn');
+  if (!user || !pass) { errEl.textContent = 'Enter username and password'; errEl.style.display = ''; return; }
+  btn.disabled = true;
+  errEl.style.display = 'none';
+  try {
+    const res = await fetch('/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: user, password: pass })
+    });
+    const data = await res.json();
+    if (!res.ok) { errEl.textContent = data.error || 'Login failed'; errEl.style.display = ''; btn.disabled = false; return; }
+    setToken(data.token);
+    localStorage.setItem('carlos_user', data.displayName || data.username);
+    localStorage.setItem('carlos_role', data.role || 'user');
+    showDashboard();
+  } catch (err) {
+    errEl.textContent = 'Connection error'; errEl.style.display = ''; btn.disabled = false;
+  }
+}
+
+function doLogout() {
+  clearToken();
+  sessionStorage.removeItem('chatSessionKey');
+  document.getElementById('dashboard').style.display = 'none';
+  document.getElementById('loginScreen').style.display = '';
+  document.getElementById('loginPass').value = '';
+  document.getElementById('loginError').style.display = 'none';
+  document.getElementById('loginBtn').disabled = false;
+  // Hide chat
+  const chatPanel = document.getElementById('chatPanel');
+  if (chatPanel) chatPanel.classList.remove('open');
+  const chatFab = document.querySelector('.chat-fab');
+  if (chatFab) chatFab.style.display = 'none';
+  const feedbackFab = document.getElementById('feedbackFab');
+  if (feedbackFab) feedbackFab.style.display = 'none';
+  // Reset chat history loaded flag so it reloads on next login
+  window._chatHistoryLoaded = false;
+  stopLiveRefresh();
+}
+
+function openChangePassword() {
+  document.getElementById('pwModal').classList.add('open');
+  document.getElementById('pwCurrent').value = '';
+  document.getElementById('pwNew').value = '';
+  document.getElementById('pwConfirm').value = '';
+  document.getElementById('pwMsg').style.display = 'none';
+  document.getElementById('pwSubmit').disabled = false;
+  document.getElementById('pwCurrent').focus();
+}
+
+function closeChangePassword() {
+  document.getElementById('pwModal').classList.remove('open');
+}
+
+async function submitChangePassword() {
+  const current = document.getElementById('pwCurrent').value;
+  const newPw = document.getElementById('pwNew').value;
+  const confirm = document.getElementById('pwConfirm').value;
+  const msg = document.getElementById('pwMsg');
+  const btn = document.getElementById('pwSubmit');
+
+  msg.style.display = 'none';
+  if (!current || !newPw || !confirm) {
+    msg.className = 'modal-msg error'; msg.textContent = 'All fields are required'; msg.style.display = ''; return;
+  }
+  if (newPw.length < 6) {
+    msg.className = 'modal-msg error'; msg.textContent = 'New password must be at least 6 characters'; msg.style.display = ''; return;
+  }
+  if (newPw !== confirm) {
+    msg.className = 'modal-msg error'; msg.textContent = 'New passwords do not match'; msg.style.display = ''; return;
+  }
+  btn.disabled = true;
+  try {
+    const res = await apiFetch('/api/change-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ currentPassword: current, newPassword: newPw })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      msg.className = 'modal-msg error'; msg.textContent = data.error || 'Failed to change password'; msg.style.display = ''; btn.disabled = false; return;
+    }
+    msg.className = 'modal-msg success'; msg.textContent = 'Password updated successfully'; msg.style.display = '';
+    setTimeout(() => closeChangePassword(), 1500);
+  } catch (err) {
+    msg.className = 'modal-msg error'; msg.textContent = 'Connection error'; msg.style.display = ''; btn.disabled = false;
+  }
+}
+
+// --- Settings ---
+async function openSettings() {
+  document.getElementById('settingsModal').classList.add('open');
+  document.getElementById('settingsMsg').style.display = 'none';
+  document.getElementById('settingsSave').disabled = false;
+  document.getElementById('settings-cal-goal').value = '';
+  document.getElementById('settings-protein-goal').value = '';
+  try {
+    const res = await apiFetch('/api/preferences');
+    if (res.ok) {
+      const prefs = await res.json();
+      if (prefs.daily_calorie_goal) document.getElementById('settings-cal-goal').value = esc(prefs.daily_calorie_goal);
+      if (prefs.daily_protein_goal) document.getElementById('settings-protein-goal').value = esc(prefs.daily_protein_goal);
+      const checkinSel = document.getElementById('settings-checkin-time');
+      checkinSel.value = '';
+      if (prefs.checkin_hour) checkinSel.value = esc(prefs.checkin_hour);
+    }
+  } catch (err) {
+    // Best-effort — show empty fields if fetch fails
+  }
+  loadTemplates();
+  document.getElementById('settings-cal-goal').focus();
+}
+
+function closeSettings() {
+  document.getElementById('settingsModal').classList.remove('open');
+}
+
+function openFeedback() {
+  document.getElementById('feedback-category').value = 'bug';
+  document.getElementById('feedback-message').value = '';
+  const msg = document.getElementById('feedbackMsg');
+  msg.style.display = 'none';
+  document.getElementById('feedbackSubmit').disabled = false;
+  document.getElementById('feedbackModal').classList.add('open');
+}
+function closeFeedback() {
+  document.getElementById('feedbackModal').classList.remove('open');
+}
+async function submitFeedback() {
+  const category = document.getElementById('feedback-category').value;
+  const message = document.getElementById('feedback-message').value.trim();
+  const msg = document.getElementById('feedbackMsg');
+  const btn = document.getElementById('feedbackSubmit');
+  if (!message) { msg.className = 'modal-msg error'; msg.textContent = 'Please enter your feedback'; msg.style.display = ''; return; }
+  btn.disabled = true;
+  try {
+    const r = await apiFetch('/api/feedback', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ category, message, page: location.hash || 'overview' }) });
+    const data = await r.json();
+    if (!r.ok) { msg.className = 'modal-msg error'; msg.textContent = data.error || 'Failed to send feedback'; msg.style.display = ''; btn.disabled = false; return; }
+    msg.className = 'modal-msg success'; msg.textContent = 'Thank you! Feedback received.'; msg.style.display = '';
+    setTimeout(() => closeFeedback(), 1500);
+  } catch { msg.className = 'modal-msg error'; msg.textContent = 'Connection error'; msg.style.display = ''; btn.disabled = false; }
+}
+
+async function saveSettings() {
+  const calGoal = document.getElementById('settings-cal-goal').value.trim();
+  const proteinGoal = document.getElementById('settings-protein-goal').value.trim();
+  const checkinTime = document.getElementById('settings-checkin-time').value;
+  const msg = document.getElementById('settingsMsg');
+  const btn = document.getElementById('settingsSave');
+  msg.style.display = 'none';
+  btn.disabled = true;
+  try {
+    const prefs = [];
+    if (calGoal !== '') prefs.push({ key: 'daily_calorie_goal', value: calGoal });
+    if (proteinGoal !== '') prefs.push({ key: 'daily_protein_goal', value: proteinGoal });
+    prefs.push({ key: 'checkin_hour', value: checkinTime || '18' });
+    for (const pref of prefs) {
+      const res = await apiFetch('/api/preferences', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(pref)
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        msg.className = 'modal-msg error'; msg.textContent = data.error || 'Failed to save settings'; msg.style.display = ''; btn.disabled = false; return;
+      }
+    }
+    msg.className = 'modal-msg success'; msg.textContent = 'Settings saved'; msg.style.display = '';
+    window._overviewLoaded = false;
+    const overviewTab = document.getElementById('overview-tab');
+    if (overviewTab && overviewTab.style.display !== 'none') loadOverview();
+    setTimeout(() => closeSettings(), 1200);
+  } catch (err) {
+    msg.className = 'modal-msg error'; msg.textContent = 'Connection error'; msg.style.display = ''; btn.disabled = false;
+  }
+}
+
+// --- Meal Templates ---
+async function loadTemplates() {
+  const list = document.getElementById('templateList');
+  if (!list) return;
+  try {
+    const res = await apiFetch('/api/templates');
+    if (!res.ok) { list.innerHTML = '<div style="font-size:0.85em;color:var(--muted)">Failed to load templates</div>'; return; }
+    const data = await res.json();
+    const templates = data.templates || [];
+    if (!templates.length) {
+      list.innerHTML = '<div style="font-size:0.85em;color:var(--muted)">No saved templates. Use chat to describe a frequent meal, or add one manually.</div>';
+      return;
+    }
+    let html = '';
+    for (const t of templates) {
+      html += `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:var(--bg);border-radius:6px;margin-bottom:6px;font-size:0.85em">
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:600">${esc(t.name)}</div>
+          ${t.description ? `<div style="font-size:0.8em;color:var(--muted)">${esc(t.description)}</div>` : ''}
+          <div style="font-size:0.75em;color:var(--muted)">${esc(String(t.calories))} cal | ${esc(String(t.protein))}g P | ${esc(String(t.carbs))}g C | ${esc(String(t.fat))}g F</div>
+        </div>
+        <div style="display:flex;gap:4px;flex-shrink:0;margin-left:8px">
+          <button onclick="editTemplate('${esc(t.id)}')" style="background:none;border:1px solid var(--border);color:var(--muted);padding:3px 8px;border-radius:4px;cursor:pointer;font-size:0.8em">Edit</button>
+          <button onclick="deleteTemplate('${esc(t.id)}')" style="background:none;border:1px solid var(--border);color:var(--red);padding:3px 8px;border-radius:4px;cursor:pointer;font-size:0.8em">Del</button>
+        </div>
+      </div>`;
+    }
+    list.innerHTML = html;
+  } catch {
+    list.innerHTML = '<div style="font-size:0.85em;color:var(--muted)">Failed to load templates</div>';
+  }
+}
+
+function addTemplateForm(editId) {
+  const list = document.getElementById('templateList');
+  if (!list) return;
+  let prefill = { name: '', description: '', calories: '', protein: '', carbs: '', fat: '' };
+  if (editId) {
+    apiFetch('/api/templates').then(r => r.json()).then(data => {
+      const t = (data.templates || []).find(x => x.id === editId);
+      if (t) {
+        document.getElementById('tpl-name').value = t.name || '';
+        document.getElementById('tpl-desc').value = t.description || '';
+        document.getElementById('tpl-cal').value = t.calories;
+        document.getElementById('tpl-pro').value = t.protein;
+        document.getElementById('tpl-carb').value = t.carbs;
+        document.getElementById('tpl-fat').value = t.fat;
+      }
+    });
+  }
+  list.innerHTML = `<div style="font-size:0.85em">
+    <input id="tpl-name" placeholder="Name" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:4px;margin-bottom:6px;font-size:0.9em">
+    <input id="tpl-desc" placeholder="Description (optional)" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:4px;margin-bottom:6px;font-size:0.9em">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px">
+      <input id="tpl-cal" type="number" placeholder="Calories" min="0" style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:4px;font-size:0.9em">
+      <input id="tpl-pro" type="number" placeholder="Protein (g)" min="0" style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:4px;font-size:0.9em">
+      <input id="tpl-carb" type="number" placeholder="Carbs (g)" min="0" style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:4px;font-size:0.9em">
+      <input id="tpl-fat" type="number" placeholder="Fat (g)" min="0" style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:4px;font-size:0.9em">
+    </div>
+    <div style="display:flex;gap:6px">
+      <button onclick="saveTemplate('${esc(editId || '')}')" style="background:var(--blue);border:none;color:#fff;padding:6px 14px;border-radius:4px;cursor:pointer;font-size:0.85em">Save</button>
+      <button onclick="loadTemplates()" style="background:none;border:1px solid var(--border);color:var(--muted);padding:6px 14px;border-radius:4px;cursor:pointer;font-size:0.85em">Cancel</button>
+    </div>
+  </div>`;
+  document.getElementById('tpl-name').focus();
+}
+
+async function saveTemplate(editId) {
+  const name = document.getElementById('tpl-name').value.trim();
+  const description = document.getElementById('tpl-desc').value.trim();
+  const calories = parseFloat(document.getElementById('tpl-cal').value);
+  const protein = parseFloat(document.getElementById('tpl-pro').value);
+  const carbs = parseFloat(document.getElementById('tpl-carb').value);
+  const fat = parseFloat(document.getElementById('tpl-fat').value);
+  if (!name || isNaN(calories) || isNaN(protein) || isNaN(carbs) || isNaN(fat)) {
+    alert('Name and all macro fields are required (numeric values).');
+    return;
+  }
+  try {
+    const res = await apiFetch('/api/templates');
+    const data = await res.json();
+    let templates = data.templates || [];
+    if (editId) {
+      templates = templates.map(t => t.id === editId ? { id: editId, name, description, calories, protein, carbs, fat } : t);
+    } else {
+      if (templates.length >= 20) { alert('Maximum 20 templates allowed.'); return; }
+      templates.push({ id: 't_' + Date.now(), name, description, calories, protein, carbs, fat });
+    }
+    const r = await apiFetch('/api/templates', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ templates })
+    });
+    if (!r.ok) { const e = await r.json(); alert(e.error || 'Failed to save template'); return; }
+    loadTemplates();
+  } catch { alert('Failed to save template'); }
+}
+
+function editTemplate(id) {
+  addTemplateForm(id);
+}
+
+async function deleteTemplate(id) {
+  if (!confirm('Delete this template?')) return;
+  try {
+    const res = await apiFetch('/api/templates');
+    const data = await res.json();
+    const templates = (data.templates || []).filter(t => t.id !== id);
+    const r = await apiFetch('/api/templates', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ templates })
+    });
+    if (!r.ok) { const e = await r.json(); alert(e.error || 'Failed to delete template'); return; }
+    loadTemplates();
+  } catch { alert('Failed to delete template'); }
+}
+
+// --- Onboarding ---
+async function checkOnboarding() {
+  try {
+    const res = await apiFetch('/api/onboarding-status');
+    if (!res.ok) return;
+    const data = await res.json();
+    if (!data.isOnboarded) {
+      document.getElementById('welcomeModal').classList.add('open');
+    }
+  } catch (err) {
+    // Silently ignore — do not block dashboard if onboarding check fails
+  }
+}
+
+function welcomeNext(step) {
+  const steps = document.querySelectorAll('.welcome-step');
+  const dots = document.querySelectorAll('#welcomeDots .welcome-dot');
+  steps.forEach(s => s.classList.remove('active'));
+  dots.forEach((d, i) => {
+    d.classList.remove('active');
+    d.classList.remove('completed');
+    if (i < step - 1) d.classList.add('completed');
+    if (i === step - 1) d.classList.add('active');
+  });
+  const target = document.getElementById('welcomeStep' + step);
+  if (target) target.classList.add('active');
+}
+
+async function completeOnboarding() {
+  try {
+    await apiFetch('/api/onboarding-complete', { method: 'POST' });
+  } catch (err) {
+    // Best-effort — close modal even if request fails
+  }
+  document.getElementById('welcomeModal').classList.remove('open');
+  toggleChat();
+}
+
+function showDashboard() {
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('dashboard').style.display = '';
+  document.getElementById('userDisplay').textContent = localStorage.getItem('carlos_user') || '';
+  const role = localStorage.getItem('carlos_role') || 'user';
+  const chatFab = document.querySelector('.chat-fab');
+  // Hide chat FAB for readonly users
+  if (chatFab) chatFab.style.display = role === 'readonly' ? 'none' : '';
+  const feedbackFab = document.getElementById('feedbackFab');
+  if (feedbackFab) feedbackFab.style.display = role === 'readonly' ? 'none' : '';
+  // Hide settings button for readonly users
+  const settingsBtn = document.getElementById('settingsBtn');
+  if (settingsBtn) settingsBtn.style.display = role === 'readonly' ? 'none' : '';
+  // Show/hide admin tab button
+  const tabRow = document.querySelector('.tab-row');
+  const existingAdminBtn = document.getElementById('adminTabBtn');
+  if (role === 'admin' && !existingAdminBtn) {
+    const btn = document.createElement('button');
+    btn.id = 'adminTabBtn';
+    btn.textContent = 'Admin';
+    btn.onclick = () => switchTab('admin');
+    tabRow.appendChild(btn);
+  } else if (role !== 'admin' && existingAdminBtn) {
+    existingAdminBtn.remove();
+  }
+  // Reset tab state so data loads fresh
+  window._overviewLoaded = false;
+  window._weightLoaded = false;
+  window._exerciseLoaded = false;
+  window._sleepLoaded = false;
+  window._nutritionLoaded = false;
+  window._adminLoaded = false;
+  loadOverview();
+  checkOnboarding();
+  startLiveRefresh();
+}
+
+// Handle Enter key on login form
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Enter' && document.getElementById('loginScreen').style.display !== 'none') {
+    doLogin();
+  }
+});
+
+// --- Range selector state ---
+let _weightRange = '1m';
+let _nutritionRange = '1w';
+
+function setWeightRange(range) {
+  _weightRange = range;
+  window._weightLoaded = false;
+  loadWeight();
+}
+
+function setNutritionRange(range) {
+  _nutritionRange = range;
+  window._nutritionLoaded = false;
+  loadDays();
+}
+
+// --- Tab switching ---
+function switchTab(tab) {
+  document.querySelectorAll('.tab-row button').forEach(b => b.classList.toggle('active', b.textContent.toLowerCase() === tab));
+  document.getElementById('overview-tab').style.display = tab === 'overview' ? '' : 'none';
+  document.getElementById('nutrition-tab').style.display = tab === 'nutrition' ? '' : 'none';
+  document.getElementById('weight-tab').style.display = tab === 'weight' ? '' : 'none';
+  document.getElementById('exercise-tab').style.display = tab === 'exercise' ? '' : 'none';
+  document.getElementById('sleep-tab').style.display = tab === 'sleep' ? '' : 'none';
+  document.getElementById('admin-tab').style.display = tab === 'admin' ? '' : 'none';
+  if (tab === 'overview' && !window._overviewLoaded) loadOverview();
+  if (tab === 'weight' && !window._weightLoaded) loadWeight();
+  if (tab === 'exercise' && !window._exerciseLoaded) loadExercise();
+  if (tab === 'sleep' && !window._sleepLoaded) loadSleep();
+  if (tab === 'nutrition' && !window._nutritionLoaded) loadDays();
+  if (tab === 'admin' && !window._adminLoaded) loadAdmin();
+}
+
+function progressBar(current, target, color, label, unit) {
+  const pct = target ? Math.min(100, Math.round((current / target) * 100)) : 0;
+  const over = current > target;
+  const fillColor = over ? 'var(--red)' : pct >= 90 ? 'var(--green)' : pct >= 50 ? color : 'var(--muted)';
+  return `<div>
+    <div class="progress-label"><span>${label}</span><span class="current">${current}${unit} / ${target}${unit} (${pct}%)</span></div>
+    <div class="progress-bar"><div class="progress-fill" style="width:${pct}%;background:${fillColor}"></div></div>
+  </div>`;
+}
+
+function parseHealthValue(str) {
+  if (!str) return null;
+  // Handle sleep format "Xh Ym" -> total minutes
+  const hm = String(str).match(/(\d+)h\s*(\d+)m/);
+  if (hm) return parseInt(hm[1]) * 60 + parseInt(hm[2]);
+  const cleaned = String(str).replace(/,/g, '').replace(/[^0-9.\-]/g, ' ').trim().split(/\s+/)[0];
+  const num = parseFloat(cleaned);
+  return isNaN(num) ? null : num;
+}
+
+function generateHealthInsights(todayHealth, days) {
+  const metrics = [
+    { key: 'Steps', threshold: 0.15, higherBetter: true, label: 'Steps' },
+    { key: 'Active Calories', threshold: 0.15, higherBetter: true, label: 'Active calories' },
+    { key: 'Avg Heart Rate', threshold: 0.10, higherBetter: false, label: 'Heart rate' },
+    { key: 'HRV', threshold: 0.15, higherBetter: true, label: 'HRV' },
+    { key: 'Blood Oxygen', threshold: 0.02, higherBetter: true, label: 'Blood oxygen' },
+    { key: 'Walking HR Avg', threshold: 0.10, higherBetter: false, label: 'Walking heart rate' },
+    { key: 'Flights Climbed', threshold: 0.30, higherBetter: true, label: 'Flights climbed' },
+    { key: 'Resting HR', threshold: 0.10, higherBetter: false, label: 'Resting heart rate' },
+    { key: 'VO2 Max', threshold: 0.05, higherBetter: true, label: 'VO2 Max' },
+    { key: 'Exercise', threshold: 0.20, higherBetter: true, label: 'Exercise time' },
+    { key: 'Sleep', threshold: 0.15, higherBetter: true, label: 'Sleep' },
+    { key: 'Distance', threshold: 0.15, higherBetter: true, label: 'Distance' },
+  ];
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const insights = [];
+  for (const m of metrics) {
+    const todayVal = parseHealthValue(todayHealth[m.key]);
+    if (todayVal === null) continue;
+    const pastVals = [];
+    for (const day of days) {
+      if (day.date === todayStr) continue;
+      const h = day.health || {};
+      const v = parseHealthValue(h[m.key]);
+      if (v !== null) pastVals.push(v);
+    }
+    if (pastVals.length < 2) continue;
+    const avg = pastVals.reduce((a, b) => a + b, 0) / pastVals.length;
+    if (avg === 0) continue;
+    const pctDiff = (todayVal - avg) / avg;
+    if (Math.abs(pctDiff) < m.threshold) continue;
+    const pctLabel = Math.abs(Math.round(pctDiff * 100)) + '%';
+    const isHigher = pctDiff > 0;
+    let sentiment, text;
+    if (m.higherBetter) {
+      if (isHigher) { sentiment = 'positive'; text = `${m.label} ${pctLabel} above your 6-day avg`; }
+      else { sentiment = 'caution'; text = `${m.label} ${pctLabel} below your 6-day avg`; }
+    } else {
+      if (isHigher) { sentiment = 'caution'; text = `${m.label} elevated compared to recent days`; }
+      else { sentiment = 'positive'; text = `${m.label} improved compared to recent days`; }
+    }
+    // Upgrade to concern for notable deviations
+    if (sentiment === 'caution' && Math.abs(pctDiff) > m.threshold * 2) sentiment = 'concern';
+    insights.push({ sentiment, text, detail: `Today: ${todayHealth[m.key]} · 6-day avg: ${Math.round(avg)}` });
+  }
+  return insights;
+}
+
+// SECURITY: The & < > escaping below MUST occur before any regex substitutions.
+// Do not add href or src attributes that interpolate the text content.
+function renderSimpleMarkdown(text) {
+  let html = text
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    .replace(/`(.+?)`/g, '<code>$1</code>');
+  // Split into blocks by double newlines
+  const blocks = html.split(/\n\n+/);
+  const out = [];
+  for (const block of blocks) {
+    const trimmed = block.trim();
+    if (!trimmed) continue;
+    if (/^#{3,4}\s/.test(trimmed)) {
+      out.push(trimmed.replace(/^#{3,4}\s+(.*)/, '<h4>$1</h4>'));
+    } else if (/^[-•]\s/.test(trimmed)) {
+      const items = trimmed.split('\n').filter(l => l.trim())
+        .map(l => '<li>' + l.replace(/^[-•]\s*/, '') + '</li>').join('');
+      out.push('<ul>' + items + '</ul>');
+    } else if (/^\d+\.\s/.test(trimmed)) {
+      const items = trimmed.split('\n').filter(l => l.trim())
+        .map(l => '<li>' + l.replace(/^\d+\.\s*/, '') + '</li>').join('');
+      out.push('<ol>' + items + '</ol>');
+    } else {
+      out.push('<p>' + trimmed.replace(/\n/g, '<br>') + '</p>');
+    }
+  }
+  return out.join('');
+}
+
+async function askCarlosHealth() {
+  const btn = document.getElementById('askCarlosBtn');
+  const container = document.getElementById('carlosInsightResponse');
+  if (!btn || !container) return;
+  btn.disabled = true;
+  btn.textContent = 'Analyzing...';
+  container.style.display = '';
+  container.innerHTML = '<p style="color:var(--muted);font-style:italic">Carlos is thinking...</p>';
+
+  const todayHealth = window._insightToday || {};
+  const days = window._insightDays || [];
+  const historyLines = days.map(d => {
+    const h = d.health || {};
+    const parts = Object.entries(h).map(([k, v]) => `${k}: ${v}`).join(', ');
+    return `${d.date}: ${parts || 'no data'}`;
+  }).join('\n');
+  const todayLines = Object.entries(todayHealth).map(([k, v]) => `${k}: ${v}`).join(', ');
+
+  const prompt = `Analyze my Apple Health stats. Be concise, practical, and specific to my numbers.\n\nToday: ${todayLines}\n\nRecent history:\n${historyLines}\n\nGive me 2-3 key observations and one actionable suggestion.`;
+
+  let rawText = '';
+  try {
+    const token = getToken();
+    const res = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({ message: prompt })
+    });
+    if (res.status === 401) { doLogout(); return; }
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let started = false;
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+      let eventType = '';
+      for (const line of lines) {
+        if (line.startsWith('event: ')) { eventType = line.slice(7); }
+        else if (line.startsWith('data: ')) {
+          let d; try { d = JSON.parse(line.slice(6)); } catch { continue; }
+          if (eventType === 'delta' && d.delta) {
+            if (!started) { started = true; rawText = ''; }
+            rawText += d.delta;
+            container.innerHTML = renderSimpleMarkdown(rawText);
+          }
+          else if (eventType === 'done' && !started) { rawText = d.reply || 'No response.'; container.innerHTML = renderSimpleMarkdown(rawText); }
+          else if (eventType === 'error') { container.innerHTML = '<p style="color:var(--red)">' + esc(d.error || 'Carlos encountered an error.') + '</p>'; }
+          eventType = '';
+        }
+      }
+    }
+    if (!started && !rawText) container.innerHTML = '<p style="color:var(--muted)">No response received.</p>';
+  } catch (err) {
+    container.innerHTML = '<p style="color:var(--red)">Failed to reach Carlos. Please try again.</p>';
+  }
+  btn.disabled = false;
+  btn.textContent = 'Ask Carlos for deeper analysis';
+}
+
+async function loadOverview() {
+  try {
+    const [summaryRes, goalsRes, weightRes, streaksRes] = await Promise.all([
+      apiFetch('/api/summary'), apiFetch('/api/goals'), apiFetch('/api/weight'), apiFetch('/api/streaks')
+    ]);
+    const summary = await summaryRes.json();
+    const goals = await goalsRes.json();
+    const weight = await weightRes.json();
+    const streaksData = await streaksRes.json();
+    window._overviewLoaded = true;
+    if (weight?.weight) window._latestWeight = weight.weight;
+
+    const today = summary.today || {};
+    const calTarget = goals['Daily Calories']?.target || 1800;
+    const proteinTarget = goals['Daily Protein']?.target || 150;
+    const hydrationTarget = goals['Hydration']?.target || 8;
+    const exerciseTarget = goals['Exercise Days']?.target || 4;
+    const targetWeight = goals['Target Weight']?.target || null;
+
+    let html = '';
+
+    // --- Health Tip ---
+    const fallbackTips = [
+      "Eating protein within 30 min of waking helps regulate hunger hormones all day",
+      "A 10-minute walk after meals can lower blood sugar spikes by up to 30%",
+      "Drinking a glass of water before each meal can reduce calorie intake by 75 cal",
+      "Sleep under 7 hours increases ghrelin (hunger hormone) by 15% the next day",
+      "Resistance training burns calories for up to 72 hours after your session",
+      "Fibre slows digestion — pair carbs with veg to stay fuller longer",
+      "Protein has the highest thermic effect — 20-30% of its calories are burned digesting it",
+      "Walking 7,000+ steps daily is linked to a 50-70% lower mortality risk",
+      "Gut bacteria thrive on variety — aim for 30 different plants per week",
+      "Vitamin D deficiency is common in the UK — consider supplementing Oct-March",
+    ];
+    let tipHtml = '';
+    try {
+      const tipsRes = await apiFetch('/api/tips');
+      const tipsData = await tipsRes.json();
+      if (tipsData.tips?.length) {
+        const tipIndex = Math.floor(Math.random() * tipsData.tips.length);
+        const tip = tipsData.tips[tipIndex];
+        tipHtml = `<div class="card" style="border-left:3px solid var(--green);padding:12px 16px">
+          <div style="font-size:0.75em;color:var(--green);text-transform:uppercase;margin-bottom:4px">Health News · ${esc(tip.source)}</div>
+          <div style="font-size:0.9em;font-weight:500">${esc(tip.text)}</div>
+          ${tip.detail ? `<div style="font-size:0.8em;color:var(--muted);margin-top:4px">${esc(tip.detail)}</div>` : ''}
+          ${tip.link ? `<a href="${escUrl(tip.link)}" target="_blank" rel="noopener" style="font-size:0.75em;color:var(--blue);text-decoration:none;margin-top:4px;display:inline-block">Read more</a>` : ''}
+        </div>`;
+      }
+    } catch {}
+    if (!tipHtml) {
+      const tipIndex = Math.floor(Date.now() / 86400000) % fallbackTips.length;
+      tipHtml = `<div class="card" style="border-left:3px solid var(--green);padding:12px 16px">
+        <div style="font-size:0.75em;color:var(--green);text-transform:uppercase;margin-bottom:4px">Daily Health Tip</div>
+        <div style="font-size:0.9em">${fallbackTips[tipIndex]}</div>
+      </div>`;
+    }
+    html += tipHtml;
+
+    // --- Calorie Warning ---
+    const todayCal = today.calories || 0;
+    if (todayCal > calTarget) {
+      const over = todayCal - calTarget;
+      html += `<div class="card" style="border-left:3px solid var(--red);padding:12px 16px">
+        <div style="font-size:0.75em;color:var(--red);text-transform:uppercase;margin-bottom:4px">Over Calorie Target</div>
+        <div style="font-size:0.9em">You're <strong>${over} cal</strong> over your ${calTarget} cal daily target. Consider a lighter evening or a walk to offset.</div>
+      </div>`;
+    }
+
+    // --- Today's Goals Progress ---
+    const hasTodayData = todayCal > 0 || (today.protein || 0) > 0 || (today.hydration || 0) > 0;
+    if (hasTodayData) {
+      html += `<div class="card"><h2>Today's Progress</h2>`;
+      html += progressBar(todayCal, calTarget, 'var(--blue)', 'Calories', ' cal');
+      html += progressBar(today.protein || 0, proteinTarget, 'var(--orange)', 'Protein', 'g');
+      html += progressBar(today.hydration || 0, hydrationTarget, 'var(--blue)', 'Hydration', ' glasses');
+      html += `</div>`;
+    } else {
+      html += `<div class="card"><div class="empty-state">
+        <div class="empty-icon">[  ]</div>
+        <div class="empty-heading">No logs yet today</div>
+        <div class="empty-text">Chat with Carlos to log your first meal, workout, or glass of water.</div>
+        <button class="empty-cta" onclick="toggleChat()">Open Chat</button>
+      </div></div>`;
+    }
+
+    // --- Macro Breakdown Donut ---
+    const todayProtein = today.protein || 0;
+    const todayCarbs = today.carbs || 0;
+    const todayFat = today.fat || 0;
+    const macroTotal = todayProtein + todayCarbs + todayFat;
+    if (macroTotal > 0) {
+      const pPct = todayProtein / macroTotal;
+      const cPct = todayCarbs / macroTotal;
+      const fPct = todayFat / macroTotal;
+      const r = 40, cx = 60, cy = 60, sw = 20;
+      const circumference = 2 * Math.PI * r;
+      const pLen = pPct * circumference, cLen = cPct * circumference, fLen = fPct * circumference;
+      const pOff = 0, cOff = pLen, fOff = pLen + cLen;
+      html += `<div class="card"><h2>Macro Breakdown</h2>
+        <div style="display:flex;align-items:center;gap:24px;flex-wrap:wrap">
+        <svg width="120" height="120" viewBox="0 0 120 120">
+          <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="var(--border)" stroke-width="${sw}"/>
+          <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="var(--green)" stroke-width="${sw}" stroke-dasharray="${pLen} ${circumference - pLen}" stroke-dashoffset="${circumference / 4}" transform="rotate(0 ${cx} ${cy})"/>
+          <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="var(--blue)" stroke-width="${sw}" stroke-dasharray="${cLen} ${circumference - cLen}" stroke-dashoffset="${circumference / 4 - pLen}" transform="rotate(0 ${cx} ${cy})"/>
+          <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="var(--orange)" stroke-width="${sw}" stroke-dasharray="${fLen} ${circumference - fLen}" stroke-dashoffset="${circumference / 4 - pLen - cLen}" transform="rotate(0 ${cx} ${cy})"/>
+        </svg>
+        <div style="font-size:0.85em;line-height:1.8">
+          <div><span style="color:var(--green)">■</span> Protein: ${todayProtein}g (${Math.round(pPct * 100)}%)</div>
+          <div><span style="color:var(--blue)">■</span> Carbs: ${todayCarbs}g (${Math.round(cPct * 100)}%)</div>
+          <div><span style="color:var(--orange)">■</span> Fat: ${todayFat}g (${Math.round(fPct * 100)}%)</div>
+        </div>
+        </div></div>`;
+    }
+
+    // --- Streaks ---
+    const streaks = streaksData.streaks || [];
+    if (streaks.length) {
+      html += `<div class="card"><h2>Streaks</h2><div style="display:flex;gap:12px;flex-wrap:wrap">`;
+      for (const s of streaks) {
+        const active = s.current > 0;
+        const color = active ? 'var(--green)' : 'var(--muted)';
+        html += `<div style="flex:1;min-width:100px;border:1px solid var(--border);padding:12px;text-align:center">
+          <div style="font-size:1.5em;color:${color}">${s.current}</div>
+          <div style="font-size:0.75em;color:var(--muted)">${esc(s.metric)}</div>
+          <div style="font-size:0.65em;color:var(--muted);margin-top:4px">Best: ${s.best}</div>
+        </div>`;
+      }
+      html += `</div></div>`;
+    }
+
+    // --- Apple Health Card ---
+    const h = today.health || {};
+    if (Object.keys(h).length) {
+      html += `<div class="card"><h2>Apple Health</h2><div class="health-grid">`;
+      const healthMap = [
+        ['Steps', h['Steps'], ''],
+        ['Active Cal', h['Active Calories'], ''],
+        ['Heart Rate', h['Avg Heart Rate'], ''],
+        ['HRV', h['HRV'], ''],
+        ['Blood O2', h['Blood Oxygen'], ''],
+        ['Flights', h['Flights Climbed'], ''],
+        ['Basal Energy', h['Basal Energy'], ''],
+        ['Walking HR', h['Walking HR Avg'], ''],
+        ['Resting HR', h['Resting HR'], ''],
+        ['VO2 Max', h['VO2 Max'], ''],
+        ['Resp Rate', h['Resp Rate'], ''],
+        ['Distance', h['Distance'], ''],
+        ['Exercise', h['Exercise'], ''],
+        ['Sleep', h['Sleep'], ''],
+      ];
+      for (const [label, value] of healthMap) {
+        if (value) html += `<div class="health-item"><div class="label">${esc(label)}</div><div class="value">${esc(value)}</div></div>`;
+      }
+      html += `</div>`;
+
+      // --- Health Insights ---
+      const days = summary.days || [];
+      window._insightToday = h;
+      window._insightDays = days;
+      const insights = generateHealthInsights(h, days);
+      if (insights.length) {
+        html += `<div style="margin-top:12px">`;
+        for (const ins of insights) {
+          html += `<div class="insight-row ${esc(ins.sentiment)}">
+            <div class="insight-dot"></div>
+            <div><div class="insight-text">${esc(ins.text)}</div><div class="insight-detail">${esc(ins.detail)}</div></div>
+          </div>`;
+        }
+        html += `</div>`;
+      }
+
+      html += `<button class="ask-carlos-btn" id="askCarlosBtn" onclick="askCarlosHealth()">Ask Carlos for deeper analysis</button>`;
+      html += `<div class="carlos-insight-response" id="carlosInsightResponse" style="display:none"></div>`;
+
+      html += `</div>`;
+    }
+
+    // --- Weekly Overview ---
+    const weekDays = summary.days || [];
+    const hasAnyWeekData = weekDays.some(day => day.hasMeals);
+    html += `<div class="card"><h2>This Week</h2>`;
+
+    if (hasAnyWeekData) {
+      html += `<div class="week-grid">`;
+      const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      for (const day of weekDays) {
+        const dow = dayNames[new Date(day.date + 'T12:00:00').getDay()];
+        const cls = day.hasMeals ? 'active' : 'missed';
+        html += `<div class="week-day ${cls}">
+          <div class="day-label">${dow}</div>
+          <div class="day-cal">${day.hasMeals ? day.calories : '—'}</div>
+          <div style="font-size:0.7em;color:var(--muted)">${day.hasMeals ? day.protein + 'g' : ''}</div>
+        </div>`;
+      }
+      html += `</div>`;
+
+      html += `<div class="stat-row">
+        <div class="stat"><div class="label">Avg Calories</div><div class="value ${summary.avgCal <= calTarget ? 'green' : 'red'}">${summary.avgCal}</div><div class="sub">target: ${calTarget}</div></div>
+        <div class="stat"><div class="label">Avg Protein</div><div class="value ${summary.avgProtein >= proteinTarget ? 'green' : 'orange'}">${summary.avgProtein}g</div><div class="sub">target: ${proteinTarget}g</div></div>
+        <div class="stat"><div class="label">Exercise</div><div class="value ${summary.exerciseDays >= exerciseTarget ? 'green' : 'orange'}">${summary.exerciseDays} days</div><div class="sub">target: ${exerciseTarget}</div></div>
+        <div class="stat"><div class="label">Days Logged</div><div class="value blue">${summary.daysLogged}/7</div></div>
+      </div>`;
+
+      if (weight?.weight) {
+        let weightSub = '';
+        if (targetWeight) {
+          const diff = weight.weight - targetWeight;
+          weightSub = diff > 0 ? diff.toFixed(0) + ' lbs to go' : 'at target!';
+        }
+        html += `<div class="stat-row">
+          <div class="stat"><div class="label">&#9878; Weight</div><div class="value blue">${weight.weight} lbs</div>${weightSub ? `<div class="sub">${esc(weightSub)}</div>` : ''}</div>
+        </div>`;
+      }
+    } else {
+      html += `<div class="empty-state">
+        <div class="empty-icon">_ _ _ _ _ _ _</div>
+        <div class="empty-heading">No data this week yet</div>
+        <div class="empty-text">Your weekly overview will fill in as you log meals and workouts. Start your first day and build a streak.</div>
+        <button class="empty-cta" onclick="toggleChat()">Open Chat</button>
+      </div>`;
+    }
+
+    html += `</div>`;
+
+    // --- Export Button ---
+    html += `<div class="card" style="text-align:center;padding:12px">
+      <button onclick="exportData('csv')" style="background:var(--border);color:var(--text);border:none;padding:8px 16px;cursor:pointer;font-family:inherit;font-size:0.85em;margin:0 4px">Export CSV</button>
+      <button onclick="exportData('json')" style="background:var(--border);color:var(--text);border:none;padding:8px 16px;cursor:pointer;font-family:inherit;font-size:0.85em;margin:0 4px">Export JSON</button>
+    </div>`;
+
+    document.getElementById('overview-content').innerHTML = html;
+  } catch (err) {
+    document.getElementById('overview-content').innerHTML = `<p class="empty">Failed to load overview</p>`;
+  }
+}
+
+
+async function exportData(format) {
+  try {
+    const res = await apiFetch(`/api/export?format=${format}`);
+    const blob = await res.blob();
+    const ext = format === 'csv' ? 'csv' : 'json';
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `carlos-export.${ext}`; a.click();
+    URL.revokeObjectURL(url);
+  } catch { alert('Export failed'); }
+}
+
+function renderWeightChart(entries) {
+  if (!entries.length) return '<p class="empty">No weight data yet</p>';
+  const weights = entries.map(e => e.weight);
+  const min = Math.min(...weights) - 2;
+  const max = Math.max(...weights) + 2;
+  const range = max - min || 1;
+  const latest = entries[entries.length - 1];
+  const first = entries[0];
+  const totalChange = (latest.weight - first.weight).toFixed(1);
+  const changeClass = totalChange < 0 ? 'down' : totalChange > 0 ? 'up' : 'flat';
+  const changeSign = totalChange > 0 ? '+' : '';
+
+  const weekAgo = entries.length > 7 ? entries[entries.length - 8] : entries[0];
+  const weekChange = (latest.weight - weekAgo.weight).toFixed(1);
+  const weekSign = weekChange > 0 ? '+' : '';
+  const weekClass = weekChange < 0 ? 'down' : weekChange > 0 ? 'up' : 'flat';
+
+  let html = `<div class="card"><h2>Weight Tracker</h2>`;
+  html += `<div class="stat-row">
+    <div class="stat"><div class="label">Current</div><div class="value blue">${latest.weight} lbs</div><div class="sub">${latest.date}</div></div>
+    <div class="stat"><div class="label">7-Day Change</div><div class="value ${weekClass}">${weekSign}${weekChange} lbs</div></div>
+    <div class="stat"><div class="label">Total Change</div><div class="value ${changeClass}">${changeSign}${totalChange} lbs</div><div class="sub">since ${first.date}</div></div>
+  </div>`;
+
+  const w = 760, h = 140, pad = 30;
+  const pw = (w - pad * 2) / (entries.length - 1 || 1);
+  const points = entries.map((e, i) => {
+    const x = pad + i * pw;
+    const y = pad + (1 - (e.weight - min) / range) * (h - pad * 2);
+    return { x, y, weight: e.weight, date: e.date };
+  });
+  const line = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x},${p.y}`).join(' ');
+  const area = line + ` L${points[points.length-1].x},${h - pad} L${points[0].x},${h - pad} Z`;
+
+  // Adaptive point radius based on entry count
+  const dotR = entries.length <= 30 ? 3 : entries.length <= 90 ? 1.5 : 0;
+
+  html += `<div class="weight-chart"><svg viewBox="0 0 ${w} ${h}" style="width:100%;height:100%">`;
+  const steps = 4;
+  for (let i = 0; i <= steps; i++) {
+    const y = pad + (i / steps) * (h - pad * 2);
+    const val = (max - (i / steps) * range).toFixed(0);
+    html += `<line x1="${pad}" y1="${y}" x2="${w - pad}" y2="${y}" stroke="var(--border)" stroke-width="0.5"/>`;
+    html += `<text x="${pad - 4}" y="${y + 4}" fill="var(--muted)" font-size="10" text-anchor="end">${val}</text>`;
+  }
+  html += `<path d="${area}" fill="var(--blue)" opacity="0.1"/>`;
+  html += `<path d="${line}" fill="none" stroke="var(--blue)" stroke-width="2"/>`;
+  if (dotR > 0) {
+    for (const p of points) {
+      html += `<circle cx="${p.x}" cy="${p.y}" r="${dotR}" fill="var(--blue)"><title>${p.date}: ${p.weight} lbs</title></circle>`;
+    }
+  }
+
+  // Evenly spaced X-axis labels (max 6)
+  const labelCount = Math.min(6, entries.length);
+  for (let i = 0; i < labelCount; i++) {
+    const idx = Math.round(i * (entries.length - 1) / (labelCount - 1 || 1));
+    const p = points[idx];
+    html += `<text x="${p.x}" y="${h - 6}" fill="var(--muted)" font-size="10" text-anchor="middle">${entries[idx].date.slice(5)}</text>`;
+  }
+  html += `</svg></div>`;
+
+  const last10 = entries.slice(-10).reverse();
+  html += `<h3>Recent Entries</h3><table><tr><th>Date</th><th>Weight</th><th>Change</th><th>Notes</th></tr>`;
+  for (let i = 0; i < last10.length; i++) {
+    const e = last10[i];
+    const prev = last10[i + 1];
+    let change = '\u2014';
+    let cls = '';
+    if (prev) {
+      const d = (e.weight - prev.weight).toFixed(1);
+      cls = d < 0 ? 'down' : d > 0 ? 'up' : 'flat';
+      change = `<span class="weight-change ${cls}">${d > 0 ? '+' : ''}${d}</span>`;
+    }
+    html += `<tr><td>${esc(e.date)}</td><td>${esc(e.weight)} lbs</td><td>${change}</td><td>${esc(e.notes)}</td></tr>`;
+  }
+  html += `</table></div>`;
+  return html;
+}
+
+async function loadWeight() {
+  try {
+    const r = await apiFetch('/api/weight?range=' + _weightRange);
+    const data = await r.json();
+    window._weightLoaded = true;
+    if (!data.history || !data.history.length) {
+      document.getElementById('weight-content').innerHTML = `<div class="card"><div class="empty-state">
+        <div class="empty-icon">/\\/\\</div>
+        <div class="empty-heading">No weight data yet</div>
+        <div class="empty-text">Tell Carlos your weight to start tracking your progress over time.</div>
+        <span class="empty-hint">"I weigh 180 lbs"</span>
+        <br><button class="empty-cta" onclick="toggleChat()" style="margin-top:16px">Open Chat</button>
+      </div></div>`;
+      return;
+    }
+    document.getElementById('weight-content').innerHTML = renderWeightRangeSelector() + renderWeightChart(data.history);
+  } catch {
+    document.getElementById('weight-content').innerHTML = '<p class="empty">Failed to load weight data</p>';
+  }
+}
+
+function renderWeightRangeSelector() {
+  const ranges = [['1w','1W'],['1m','1M'],['3m','3M'],['1y','1Y']];
+  return '<div class="range-row">' + ranges.map(([val,label]) =>
+    `<button class="range-btn${_weightRange===val?' active':''}" onclick="setWeightRange('${val}')">${label}</button>`
+  ).join('') + '</div>';
+}
+
+function renderExerciseChart(data) {
+  let html = '<div class="card"><h2>Exercise Tracker</h2>';
+
+  // Stat row
+  const ws = data.weeklyStats || {};
+  html += '<div class="stat-row">';
+  html += '<div class="stat"><div class="label">This Week</div><div class="value green">' + (ws.workouts || 0) + '</div><div class="sub">workouts</div></div>';
+  html += '<div class="stat"><div class="label">Calories Burned</div><div class="value orange">' + (ws.totalCal || 0).toLocaleString() + '</div><div class="sub">cal this week</div></div>';
+  html += '<div class="stat"><div class="label">Activity Types</div><div class="value blue">' + (ws.activities || 0) + '</div><div class="sub">types</div></div>';
+  html += '</div>';
+
+  // Weekly calories bar chart
+  const weeks = data.weeklyHistory || [];
+  if (weeks.length) {
+    const maxCal = Math.max(...weeks.map(w => w.calories || 0), 1);
+    const w = 760, h = 140, pad = 30;
+    const barW = Math.floor((w - pad * 2) / weeks.length * 0.7);
+    const gap = (w - pad * 2) / weeks.length;
+
+    html += '<div class="weight-chart"><svg viewBox="0 0 ' + w + ' ' + h + '" style="width:100%;height:100%">';
+    // Y-axis grid lines
+    const steps = 4;
+    for (let i = 0; i <= steps; i++) {
+      const y = pad + (i / steps) * (h - pad * 2);
+      const val = Math.round(maxCal - (i / steps) * maxCal);
+      html += '<line x1="' + pad + '" y1="' + y + '" x2="' + (w - pad) + '" y2="' + y + '" stroke="var(--border)" stroke-width="0.5"/>';
+      html += '<text x="' + (pad - 4) + '" y="' + (y + 4) + '" fill="var(--muted)" font-size="10" text-anchor="end">' + val + '</text>';
+    }
+    // Bars
+    for (let i = 0; i < weeks.length; i++) {
+      const wk = weeks[i];
+      const cal = wk.calories || 0;
+      const barH = maxCal > 0 ? (cal / maxCal) * (h - pad * 2) : 0;
+      const x = pad + i * gap + (gap - barW) / 2;
+      const y = pad + (h - pad * 2) - barH;
+      if (cal > 0) {
+        html += '<rect x="' + x + '" y="' + y + '" width="' + barW + '" height="' + barH + '" fill="var(--green)" rx="2"><title>' + (wk.weekOf || '') + ': ' + cal.toLocaleString() + ' cal, ' + (wk.workouts || 0) + ' workouts</title></rect>';
+      }
+      // X-axis label
+      const label = (wk.weekOf || '').slice(5); // MM-DD
+      html += '<text x="' + (x + barW / 2) + '" y="' + (h - 6) + '" fill="var(--muted)" font-size="9" text-anchor="middle">' + esc(label) + '</text>';
+    }
+    html += '</svg></div>';
+  }
+
+  // Activity breakdown
+  const activities = data.activities || [];
+  if (activities.length) {
+    html += '<h3>Activity Breakdown</h3>';
+    for (const a of activities) {
+      html += '<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--bg);border-radius:6px;margin-bottom:4px;font-size:0.85em">';
+      html += '<span style="font-weight:600;flex:1">' + esc(a.activity) + '</span>';
+      html += '<span style="color:var(--muted)">' + a.count + ' workout' + (a.count !== 1 ? 's' : '') + '</span>';
+      html += '<span style="color:var(--orange)">' + (a.totalCal || 0).toLocaleString() + ' cal</span>';
+      html += '</div>';
+    }
+  }
+
+  // Recent workouts table
+  const recent = (data.recent || []).slice(0, 10);
+  if (recent.length) {
+    html += '<h3>Recent Workouts</h3>';
+    html += '<table><tr><th>Date</th><th>Activity</th><th>Duration</th><th>Calories</th><th>Notes</th></tr>';
+    for (const r of recent) {
+      html += '<tr>';
+      html += '<td>' + esc(r.date) + '</td>';
+      html += '<td>' + esc(r.activity) + '</td>';
+      html += '<td>' + esc(r.duration) + '</td>';
+      html += '<td>' + (r.calories ? r.calories.toLocaleString() : '—') + '</td>';
+      html += '<td>' + esc(r.notes) + '</td>';
+      html += '</tr>';
+    }
+    html += '</table>';
+  }
+
+  html += '</div>';
+  return html;
+}
+
+async function loadExercise() {
+  try {
+    const r = await apiFetch('/api/exercise');
+    const data = await r.json();
+    window._exerciseLoaded = true;
+    if (!data.recent || !data.recent.length) {
+      document.getElementById('exercise-content').innerHTML = '<div class="card"><div class="empty-state">' +
+        '<div class="empty-icon">~\\o/~</div>' +
+        '<div class="empty-heading">No workouts logged yet</div>' +
+        '<div class="empty-text">Tell Carlos about your workouts to track your fitness progress.</div>' +
+        '<span class="empty-hint">"30 min run" or "45 min weight training"</span>' +
+        '<br><button class="empty-cta" onclick="toggleChat()" style="margin-top:16px">Open Chat</button>' +
+        '</div></div>';
+      return;
+    }
+    document.getElementById('exercise-content').innerHTML = renderExerciseChart(data);
+  } catch {
+    document.getElementById('exercise-content').innerHTML = '<p class="empty">Failed to load exercise data</p>';
+  }
+}
+
+// --- Sleep Tab ---
+let _sleepRange = '1m';
+function setSleepRange(range) { _sleepRange = range; window._sleepLoaded = false; loadSleep(); }
+
+function fmtSleep(m) { return Math.floor(m / 60) + 'h ' + (m % 60) + 'm'; }
+
+function renderSleepChart(data) {
+  const entries = data.entries || [];
+  const stats = data.stats || {};
+  let html = '<div class="card"><h2>Sleep Tracker</h2>';
+
+  // Range selector
+  const ranges = [['1w','1W'],['1m','1M'],['3m','3M'],['1y','1Y']];
+  html += '<div class="range-row">' + ranges.map(([val, label]) =>
+    `<button class="range-btn${_sleepRange === val ? ' active' : ''}" onclick="setSleepRange('${val}')">${label}</button>`
+  ).join('') + '</div>';
+
+  // Stat row
+  html += '<div class="stat-row">';
+  html += '<div class="stat"><div class="label">Avg Sleep</div><div class="value blue">' + fmtSleep(stats.avgMinutes || 0) + '</div></div>';
+  html += '<div class="stat"><div class="label">Shortest Night</div><div class="value orange">' + fmtSleep(stats.minSleep || 0) + '</div></div>';
+  html += '<div class="stat"><div class="label">Longest Night</div><div class="value green">' + fmtSleep(stats.maxSleep || 0) + '</div></div>';
+  html += '<div class="stat"><div class="label">Days Tracked</div><div class="value">' + (stats.daysTracked || 0) + '</div></div>';
+  html += '</div>';
+
+  // SVG bar chart (daily sleep bars, sorted ascending for chart)
+  const sorted = entries.slice().sort((a, b) => a.date.localeCompare(b.date));
+  if (sorted.length) {
+    const maxMin = Math.max(...sorted.map(e => e.duration), 1);
+    const maxHours = Math.ceil(maxMin / 60);
+    const w = 760, h = 180, pad = 40;
+    const barW = Math.max(1, Math.floor((w - pad * 2) / sorted.length * 0.7));
+    const gap = (w - pad * 2) / sorted.length;
+
+    html += '<div class="weight-chart" style="height:200px"><svg viewBox="0 0 ' + w + ' ' + h + '" style="width:100%;height:100%">';
+
+    // Y-axis grid (hours)
+    const steps = 4;
+    for (let i = 0; i <= steps; i++) {
+      const y = pad + (i / steps) * (h - pad * 2);
+      const val = (maxHours - (i / steps) * maxHours).toFixed(0);
+      html += '<line x1="' + pad + '" y1="' + y + '" x2="' + (w - pad) + '" y2="' + y + '" stroke="var(--border)" stroke-width="0.5"/>';
+      html += '<text x="' + (pad - 4) + '" y="' + (y + 4) + '" fill="var(--muted)" font-size="9" text-anchor="end">' + val + '</text>';
+    }
+
+    // Y-axis label
+    html += '<text x="10" y="' + (pad + (h - pad * 2) / 2) + '" fill="var(--muted)" font-size="9" text-anchor="middle" transform="rotate(-90,10,' + (pad + (h - pad * 2) / 2) + ')">Hours</text>';
+
+    // Bars
+    for (let i = 0; i < sorted.length; i++) {
+      const e = sorted[i];
+      const dur = e.duration || 0;
+      const hours = dur / 60;
+      const barH = maxHours > 0 ? (hours / maxHours) * (h - pad * 2) : 0;
+      const x = pad + i * gap + (gap - barW) / 2;
+      const y = pad + (h - pad * 2) - barH;
+      let color = 'var(--green)';
+      if (dur < 360 || dur > 600) color = 'var(--red)';
+      else if (dur < 420 || dur > 540) color = 'var(--orange)';
+      if (dur > 0) {
+        html += '<rect x="' + x + '" y="' + y + '" width="' + barW + '" height="' + barH + '" fill="' + color + '" rx="2"><title>' + esc(e.date) + ': ' + fmtSleep(dur) + '</title></rect>';
+      }
+    }
+
+    // X-axis labels (evenly spaced, max 6)
+    const labelCount = Math.min(6, sorted.length);
+    for (let i = 0; i < labelCount; i++) {
+      const idx = Math.round(i * (sorted.length - 1) / (labelCount - 1 || 1));
+      const x = pad + idx * gap + gap / 2;
+      html += '<text x="' + x + '" y="' + (h - 6) + '" fill="var(--muted)" font-size="9" text-anchor="middle">' + esc(sorted[idx].date.slice(5)) + '</text>';
+    }
+
+    html += '</svg></div>';
+  }
+
+  // Recent entries table (last 10)
+  const recent = entries.slice(0, 10);
+  if (recent.length) {
+    html += '<h3>Recent Entries</h3>';
+    html += '<table><tr><th>Date</th><th>Duration</th><th>Source</th><th>Notes</th></tr>';
+    for (const e of recent) {
+      const src = e.source === 'apple_health' ? 'Apple Health' : 'Manual';
+      html += '<tr>';
+      html += '<td>' + esc(e.date) + '</td>';
+      html += '<td>' + fmtSleep(e.duration) + '</td>';
+      html += '<td>' + esc(src) + '</td>';
+      html += '<td>' + esc(e.notes) + '</td>';
+      html += '</tr>';
+    }
+    html += '</table>';
+  }
+
+  html += '</div>';
+  return html;
+}
+
+async function loadSleep() {
+  try {
+    const r = await apiFetch('/api/sleep?range=' + _sleepRange);
+    const data = await r.json();
+    window._sleepLoaded = true;
+    if (!data.entries || !data.entries.length) {
+      document.getElementById('sleep-content').innerHTML = '<div class="card"><div class="empty-state">' +
+        '<div class="empty-icon">( -_-)zzZ</div>' +
+        '<div class="empty-heading">No sleep data yet</div>' +
+        '<div class="empty-text">Tell Carlos about your sleep to start tracking your rest patterns.</div>' +
+        '<span class="empty-hint">"I slept 7 hours last night"</span>' +
+        '<br><button class="empty-cta" onclick="toggleChat()" style="margin-top:16px">Open Chat</button>' +
+        '</div></div>';
+      return;
+    }
+    document.getElementById('sleep-content').innerHTML = renderSleepChart(data);
+  } catch {
+    document.getElementById('sleep-content').innerHTML = '<p class="empty">Failed to load sleep data</p>';
+  }
+}
+
+async function fetchIndex() {
+  const r = await apiFetch('/api/logs');
+  if (!r.ok) return [];
+  return r.json();
+}
+
+async function fetchLog(date) {
+  const r = await apiFetch(`/api/logs/${date}`);
+  if (!r.ok) return null;
+  return r.json();
+}
+
+function renderDay(date, data) {
+  if (!data) data = { meals: [], hydration: [], exercise: [], health: {} };
+  const meals = data.meals || [];
+  const exercises = data.exercise || [];
+  const hydration = data.hydration || [];
+  const calIn = meals.reduce((s, m) => s + (m.calories || 0), 0);
+  const calBurned = exercises.reduce((s, e) => s + (e.calories_burned || 0), 0);
+  const netCal = calIn - calBurned;
+  const weightKg = window._latestWeight ? window._latestWeight * 0.453592 : 120.2;
+  const BMR = Math.round(10 * weightKg + 6.25 * 177.8 - 5 * 54 + 5);
+  const diff = netCal ? netCal - BMR : null;
+  const diffLabel = diff !== null ? (diff > 0 ? `+${diff} surplus` : `${diff} deficit`) : '—';
+  const diffClass = diff !== null ? (diff > 0 ? 'surplus' : 'deficit') : '';
+  let html = `<div class="card"><h2>${date}</h2>`;
+  html += `<div class="stat-row">
+    <div class="stat"><div class="label">Calories In</div><div class="value green">${calIn || '—'}</div></div>
+    <div class="stat"><div class="label">Burned</div><div class="value orange">${calBurned || '—'}</div></div>
+    <div class="stat"><div class="label">Net</div><div class="value blue">${netCal || '—'}</div><div class="sub">BMR: ${BMR}</div></div>
+    <div class="stat"><div class="label">Surplus / Deficit</div><div class="value ${diffClass}">${diffLabel}</div></div>
+  </div>`;
+  if (meals.length) {
+    html += `<h3>Meals</h3><table><tr><th>Time</th><th>Meal</th><th>Cal</th><th>Protein</th><th>Carbs</th><th>Fat</th></tr>`;
+    for (const m of meals) html += `<tr><td>${esc(m.time)}</td><td>${esc(m.meal)}</td><td>${esc(m.calories)}</td><td>${esc(m.protein)}</td><td>${esc(m.carbs)}</td><td>${esc(m.fat)}</td></tr>`;
+    html += `</table>`;
+  }
+  if (exercises.length) {
+    html += `<h3>Exercise</h3><table><tr><th>Time</th><th>Activity</th><th>Duration</th><th>Burned</th></tr>`;
+    for (const e of exercises) html += `<tr><td>${esc(e.time)}</td><td>${esc(e.activity)}</td><td>${esc(e.duration)}</td><td>${esc(e.calories_burned)}</td></tr>`;
+    html += `</table>`;
+  }
+  if (hydration.length) {
+    html += `<h3>Hydration</h3><div style="font-size:0.9em;color:var(--blue)">${hydration.length} glasses</div>`;
+  }
+  if (!meals.length && !exercises.length && !hydration.length) html += `<p class="empty">No entries logged yet</p>`;
+  html += `</div>`;
+  return html;
+}
+
+async function loadDays() {
+  try {
+    window._nutritionLoaded = true;
+    try {
+      const wr = await apiFetch('/api/weight');
+      const wd = await wr.json();
+      if (wd.weight) window._latestWeight = wd.weight;
+    } catch {}
+
+    const container = document.getElementById('content');
+    const nav = document.getElementById('nav');
+    const rangeHtml = renderNutritionRangeSelector();
+
+    if (_nutritionRange === '1w') {
+      // Existing day-by-day card view
+      const files = await fetchIndex();
+      if (!files.length) {
+        nav.innerHTML = rangeHtml;
+        container.innerHTML = `<div class="card"><div class="empty-state">
+          <div class="empty-icon">[  ?  ]</div>
+          <div class="empty-heading">No nutrition logs yet</div>
+          <div class="empty-text">Send Carlos a photo of your meal or describe what you ate. He will estimate the calories, protein, carbs, and fat.</div>
+          <span class="empty-hint">"I had two eggs and toast for breakfast"</span>
+          <br><button class="empty-cta" onclick="toggleChat()" style="margin-top:16px">Open Chat</button>
+        </div></div>`;
+        return;
+      }
+      const recent = files.slice(0, 7);
+      nav.innerHTML = rangeHtml + recent.map((d, i) => `<button onclick="showDay('${d}')" class="${i === 0 ? 'active' : ''}">${d}</button>`).join('');
+      window.showDay = async (date) => {
+        nav.querySelectorAll('button:not(.range-btn)').forEach(b => b.classList.toggle('active', b.textContent === date));
+        container.innerHTML = '<div class="loading">Loading...</div>';
+        const data = await fetchLog(date);
+        container.innerHTML = renderDay(date, data);
+      };
+      const data = await fetchLog(recent[0]);
+      container.innerHTML = renderDay(recent[0], data);
+    } else {
+      // Trend chart view for 1M, 3M, 1Y
+      nav.innerHTML = rangeHtml;
+      container.innerHTML = '<div class="loading">Loading...</div>';
+      const r = await apiFetch('/api/nutrition/summary?range=' + _nutritionRange);
+      const data = await r.json();
+      if (!data.days || !data.days.length) {
+        container.innerHTML = `<div class="card"><div class="empty-state">
+          <div class="empty-icon">[  ?  ]</div>
+          <div class="empty-heading">No nutrition data for this period</div>
+          <div class="empty-text">Log meals with Carlos to see your trends here.</div>
+        </div></div>`;
+        return;
+      }
+      container.innerHTML = renderNutritionTrend(data);
+    }
+  } catch {
+    document.getElementById('content').innerHTML = `<div class="card"><div class="empty-state">
+      <div class="empty-icon">[  ?  ]</div>
+      <div class="empty-heading">No nutrition logs yet</div>
+      <div class="empty-text">Send Carlos a photo of your meal or describe what you ate.</div>
+    </div></div>`;
+  }
+}
+
+function renderNutritionRangeSelector() {
+  const ranges = [['1w','1W'],['1m','1M'],['3m','3M'],['1y','1Y']];
+  return '<div class="range-row">' + ranges.map(([val,label]) =>
+    `<button class="range-btn${_nutritionRange===val?' active':''}" onclick="setNutritionRange('${val}')">${label}</button>`
+  ).join('') + '</div>';
+}
+
+function renderNutritionTrend(data) {
+  const days = data.days || [];
+  const avgCal = data.avgCal || 0;
+  const avgProtein = data.avgProtein || 0;
+  const daysLogged = data.daysLogged || 0;
+
+  let html = '<div class="card"><h2>Nutrition Trends</h2>';
+  html += `<div class="stat-row">
+    <div class="stat"><div class="label">Avg Calories</div><div class="value green">${avgCal.toLocaleString()}</div><div class="sub">${daysLogged} days</div></div>
+    <div class="stat"><div class="label">Avg Protein</div><div class="value blue">${avgProtein}g</div></div>
+    <div class="stat"><div class="label">Days Logged</div><div class="value">${daysLogged}</div></div>
+  </div>`;
+
+  // SVG chart: calorie bars (blue) with protein line overlay (green)
+  const w = 760, h = 180, pad = 40;
+  const maxCal = Math.max(...days.map(d => d.calories), 1);
+  const maxPro = Math.max(...days.map(d => d.protein), 1);
+  const barW = Math.max(1, Math.floor((w - pad * 2) / days.length * 0.7));
+  const gap = (w - pad * 2) / days.length;
+
+  html += `<div class="weight-chart" style="height:200px"><svg viewBox="0 0 ${w} ${h}" style="width:100%;height:100%">`;
+
+  // Y-axis grid (calories)
+  const steps = 4;
+  for (let i = 0; i <= steps; i++) {
+    const y = pad + (i / steps) * (h - pad * 2);
+    const val = Math.round(maxCal - (i / steps) * maxCal);
+    html += `<line x1="${pad}" y1="${y}" x2="${w - pad}" y2="${y}" stroke="var(--border)" stroke-width="0.5"/>`;
+    html += `<text x="${pad - 4}" y="${y + 4}" fill="var(--muted)" font-size="9" text-anchor="end">${val}</text>`;
+  }
+
+  // Average calorie line
+  if (avgCal > 0) {
+    const avgY = pad + (1 - avgCal / maxCal) * (h - pad * 2);
+    html += `<line x1="${pad}" y1="${avgY}" x2="${w - pad}" y2="${avgY}" stroke="var(--green)" stroke-width="1" stroke-dasharray="4,3" opacity="0.7"/>`;
+    html += `<text x="${w - pad + 4}" y="${avgY + 3}" fill="var(--green)" font-size="8">avg</text>`;
+  }
+
+  // Calorie bars
+  for (let i = 0; i < days.length; i++) {
+    const d = days[i];
+    const barH = maxCal > 0 ? (d.calories / maxCal) * (h - pad * 2) : 0;
+    const x = pad + i * gap + (gap - barW) / 2;
+    const y = pad + (h - pad * 2) - barH;
+    if (d.calories > 0) {
+      html += `<rect x="${x}" y="${y}" width="${barW}" height="${barH}" fill="var(--blue)" opacity="0.6" rx="1"><title>${d.date}: ${d.calories} cal, ${d.protein}g protein</title></rect>`;
+    }
+  }
+
+  // Protein line overlay (scaled to right Y-axis)
+  if (days.length > 1) {
+    const proteinPoints = days.map((d, i) => {
+      const x = pad + i * gap + gap / 2;
+      const y = pad + (1 - d.protein / maxPro) * (h - pad * 2);
+      return { x, y };
+    });
+    const proteinLine = proteinPoints.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x},${p.y}`).join(' ');
+    html += `<path d="${proteinLine}" fill="none" stroke="var(--green)" stroke-width="1.5" opacity="0.8"/>`;
+  }
+
+  // Right Y-axis labels for protein
+  for (let i = 0; i <= steps; i++) {
+    const y = pad + (i / steps) * (h - pad * 2);
+    const val = Math.round(maxPro - (i / steps) * maxPro);
+    html += `<text x="${w - pad + 4}" y="${y + 4}" fill="var(--green)" font-size="9">${val}g</text>`;
+  }
+
+  // X-axis labels (evenly spaced, max 6)
+  const labelCount = Math.min(6, days.length);
+  for (let i = 0; i < labelCount; i++) {
+    const idx = Math.round(i * (days.length - 1) / (labelCount - 1 || 1));
+    const x = pad + idx * gap + gap / 2;
+    html += `<text x="${x}" y="${h - 6}" fill="var(--muted)" font-size="9" text-anchor="middle">${days[idx].date.slice(5)}</text>`;
+  }
+
+  html += '</svg></div>';
+
+  // Legend
+  html += '<div style="display:flex;gap:16px;font-size:0.75em;color:var(--muted);margin-top:8px">';
+  html += '<span><span style="display:inline-block;width:10px;height:10px;background:var(--blue);opacity:0.6;border-radius:2px;margin-right:4px"></span>Calories</span>';
+  html += '<span><span style="display:inline-block;width:10px;height:2px;background:var(--green);margin-right:4px;vertical-align:middle"></span>Protein (g)</span>';
+  html += '<span><span style="display:inline-block;width:10px;border-top:1px dashed var(--green);margin-right:4px;vertical-align:middle"></span>Avg cal</span>';
+  html += '</div>';
+
+  html += '</div>';
+  return html;
+}
+
+// --- Admin Panel ---
+function closeAdminModal() {
+  document.getElementById('adminModal').classList.remove('open');
+}
+
+async function loadAdmin() {
+  try {
+    const r = await apiFetch('/api/admin/users');
+    const data = await r.json();
+    window._adminLoaded = true;
+    renderAdminUsers(data.users || []);
+  } catch {
+    document.getElementById('admin-content').innerHTML = '<p class="empty">Failed to load users</p>';
+  }
+}
+
+function renderAdminUsers(users) {
+  let html = `<div class="card"><h2>User Management</h2>`;
+  html += `<div class="admin-toolbar"><button onclick="openAddUser()">+ Add User</button></div>`;
+  html += `<table class="admin-table"><tr><th>Username</th><th>Display Name</th><th>Role</th><th>Created</th><th>Actions</th></tr>`;
+  for (const u of users) {
+    html += `<tr>
+      <td>${esc(u.username)}</td>
+      <td>${esc(u.displayName)}</td>
+      <td><span class="role-badge ${esc(u.role)}">${esc(u.role)}</span></td>
+      <td style="font-size:0.8em;color:var(--muted)">${esc(u.createdAt || '')}</td>
+      <td><div class="admin-actions">
+        <button onclick="openEditUser('${esc(u.username)}','${esc(u.displayName)}','${esc(u.role)}')">Edit</button>
+        <button onclick="openResetPassword('${esc(u.username)}')">Reset PW</button>
+        <button class="danger" onclick="confirmDeleteUser('${esc(u.username)}')">Delete</button>
+      </div></td>
+    </tr>`;
+  }
+  html += `</table></div>`;
+  document.getElementById('admin-content').innerHTML = html;
+}
+
+function openAddUser() {
+  document.getElementById('adminModalTitle').textContent = 'Add User';
+  document.getElementById('adminMsg').style.display = 'none';
+  document.getElementById('adminModalFields').innerHTML = `
+    <input type="text" id="adminField1" placeholder="Username" autocomplete="off">
+    <input type="text" id="adminField2" placeholder="Display Name" autocomplete="off">
+    <input type="password" id="adminField3" placeholder="Password (min 6 chars)" autocomplete="new-password">
+    <select id="adminField4" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:10px 14px;border-radius:6px;font-size:0.9em;margin-bottom:10px">
+      <option value="user">User</option>
+      <option value="admin">Admin</option>
+      <option value="readonly">Read Only</option>
+    </select>`;
+  const btn = document.getElementById('adminSubmit');
+  btn.textContent = 'Create';
+  btn.disabled = false;
+  btn.onclick = submitAddUser;
+  document.getElementById('adminModal').classList.add('open');
+  document.getElementById('adminField1').focus();
+}
+
+async function submitAddUser() {
+  const username = document.getElementById('adminField1').value.trim();
+  const displayName = document.getElementById('adminField2').value.trim() || username;
+  const password = document.getElementById('adminField3').value;
+  const role = document.getElementById('adminField4').value;
+  const msg = document.getElementById('adminMsg');
+  const btn = document.getElementById('adminSubmit');
+  msg.style.display = 'none';
+  if (!username || !password) {
+    msg.className = 'modal-msg error'; msg.textContent = 'Username and password required'; msg.style.display = ''; return;
+  }
+  if (password.length < 6) {
+    msg.className = 'modal-msg error'; msg.textContent = 'Password must be at least 6 characters'; msg.style.display = ''; return;
+  }
+  btn.disabled = true;
+  try {
+    const r = await apiFetch('/api/admin/users', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, displayName, password, role })
+    });
+    const data = await r.json();
+    if (!r.ok) { msg.className = 'modal-msg error'; msg.textContent = data.error || 'Failed'; msg.style.display = ''; btn.disabled = false; return; }
+    closeAdminModal();
+    window._adminLoaded = false;
+    loadAdmin();
+  } catch { msg.className = 'modal-msg error'; msg.textContent = 'Connection error'; msg.style.display = ''; btn.disabled = false; }
+}
+
+function openEditUser(username, displayName, role) {
+  document.getElementById('adminModalTitle').textContent = 'Edit User: ' + username;
+  document.getElementById('adminMsg').style.display = 'none';
+  document.getElementById('adminModalFields').innerHTML = `
+    <input type="text" id="adminField1" placeholder="Display Name" value="${esc(displayName)}" autocomplete="off">
+    <select id="adminField2" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:10px 14px;border-radius:6px;font-size:0.9em;margin-bottom:10px">
+      <option value="user" ${role==='user'?'selected':''}>User</option>
+      <option value="admin" ${role==='admin'?'selected':''}>Admin</option>
+      <option value="readonly" ${role==='readonly'?'selected':''}>Read Only</option>
+    </select>`;
+  const btn = document.getElementById('adminSubmit');
+  btn.textContent = 'Save';
+  btn.disabled = false;
+  btn.onclick = () => submitEditUser(username);
+  document.getElementById('adminModal').classList.add('open');
+  document.getElementById('adminField1').focus();
+}
+
+async function submitEditUser(username) {
+  const displayName = document.getElementById('adminField1').value.trim();
+  const role = document.getElementById('adminField2').value;
+  const msg = document.getElementById('adminMsg');
+  const btn = document.getElementById('adminSubmit');
+  msg.style.display = 'none';
+  btn.disabled = true;
+  try {
+    const r = await apiFetch('/api/admin/users/' + encodeURIComponent(username), {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ displayName, role })
+    });
+    const data = await r.json();
+    if (!r.ok) { msg.className = 'modal-msg error'; msg.textContent = data.error || 'Failed'; msg.style.display = ''; btn.disabled = false; return; }
+    closeAdminModal();
+    window._adminLoaded = false;
+    loadAdmin();
+  } catch { msg.className = 'modal-msg error'; msg.textContent = 'Connection error'; msg.style.display = ''; btn.disabled = false; }
+}
+
+function openResetPassword(username) {
+  document.getElementById('adminModalTitle').textContent = 'Reset Password: ' + username;
+  document.getElementById('adminMsg').style.display = 'none';
+  document.getElementById('adminModalFields').innerHTML = `
+    <input type="password" id="adminField1" placeholder="New password (min 6 chars)" autocomplete="new-password">
+    <input type="password" id="adminField2" placeholder="Confirm new password" autocomplete="new-password">`;
+  const btn = document.getElementById('adminSubmit');
+  btn.textContent = 'Reset Password';
+  btn.disabled = false;
+  btn.onclick = () => submitResetPassword(username);
+  document.getElementById('adminModal').classList.add('open');
+  document.getElementById('adminField1').focus();
+}
+
+async function submitResetPassword(username) {
+  const newPassword = document.getElementById('adminField1').value;
+  const confirm = document.getElementById('adminField2').value;
+  const msg = document.getElementById('adminMsg');
+  const btn = document.getElementById('adminSubmit');
+  msg.style.display = 'none';
+  if (!newPassword || newPassword.length < 6) {
+    msg.className = 'modal-msg error'; msg.textContent = 'Password must be at least 6 characters'; msg.style.display = ''; return;
+  }
+  if (newPassword !== confirm) {
+    msg.className = 'modal-msg error'; msg.textContent = 'Passwords do not match'; msg.style.display = ''; return;
+  }
+  btn.disabled = true;
+  try {
+    const r = await apiFetch('/api/admin/users/' + encodeURIComponent(username) + '/reset-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ newPassword })
+    });
+    const data = await r.json();
+    if (!r.ok) { msg.className = 'modal-msg error'; msg.textContent = data.error || 'Failed'; msg.style.display = ''; btn.disabled = false; return; }
+    msg.className = 'modal-msg success'; msg.textContent = 'Password reset successfully'; msg.style.display = '';
+    setTimeout(() => closeAdminModal(), 1200);
+  } catch { msg.className = 'modal-msg error'; msg.textContent = 'Connection error'; msg.style.display = ''; btn.disabled = false; }
+}
+
+async function confirmDeleteUser(username) {
+  if (!confirm('Delete user "' + username + '"? Their data directories will be preserved.')) return;
+  try {
+    const r = await apiFetch('/api/admin/users/' + encodeURIComponent(username), { method: 'DELETE' });
+    const data = await r.json();
+    if (!r.ok) { alert(data.error || 'Failed to delete user'); return; }
+    window._adminLoaded = false;
+    loadAdmin();
+  } catch { alert('Connection error'); }
+}
+
+// --- Init: deferred to after chat FAB exists (see bottom of page) ---
+</script>
+
+<button class="feedback-fab" onclick="openFeedback()" title="Send Feedback" style="display:none" id="feedbackFab"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>Feedback</button>
+
+<!-- Chat Widget -->
+<button class="chat-fab" onclick="toggleChat()" title="Chat with Carlos" style="display:none"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></button>
+<div class="chat-panel" id="chatPanel">
+  <div class="chat-header">
+    <div style="display:flex;align-items:center;gap:8px"><img src="/carlos-logo.png" alt="" style="width:24px;height:24px;border-radius:50%"><h3 style="margin:0">Chat with Carlos</h3></div>
+    <button onclick="toggleChat()" title="Close">&times;</button>
+  </div>
+  <div class="chat-messages" id="chatMessages">
+    <div class="chat-msg carlos"><img src="/carlos-logo.png" class="carlos-avatar" alt="">Hey! Ask me anything — log meals, check your progress, or just chat.</div>
+  </div>
+  <input type="file" id="chatFileInput" accept="image/*" style="display:none" onchange="handlePhotoSelect(this)">
+  <div class="chat-preview" id="chatPreview">
+    <img id="chatPreviewImg" src="" alt="Preview">
+    <span class="preview-label">Photo attached</span>
+    <button class="remove-preview" onclick="clearPhoto()" title="Remove">&times;</button>
+  </div>
+  <div class="chat-input-row">
+    <button class="chat-photo-btn" onclick="document.getElementById('chatFileInput').click()" title="Send a photo"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="12" cy="13" r="4"/><path d="M5 3v2"/><path d="M19 3v2"/></svg></button>
+    <input type="text" id="chatInput" placeholder="Type a message..." onkeydown="if(event.key==='Enter'&&!event.shiftKey)sendChat()">
+    <button id="chatSend" onclick="sendChat()">Send</button>
+  </div>
+</div>
+<script>
+let _pendingImage = null;
+
+function toggleChat() {
+  const panel = document.getElementById('chatPanel');
+  panel.classList.toggle('open');
+  if (panel.classList.contains('open')) {
+    document.getElementById('chatInput').focus();
+    loadChatHistory();
+  }
+}
+
+async function loadChatHistory() {
+  if (window._chatHistoryLoaded) return;
+  window._chatHistoryLoaded = true;
+  try {
+    const res = await apiFetch('/api/chat/history');
+    if (!res.ok) return;
+    const messages = await res.json();
+    if (!messages.length) return;
+    const container = document.getElementById('chatMessages');
+    // Clear the default welcome message
+    container.innerHTML = '';
+    for (const msg of messages) {
+      const el = document.createElement('div');
+      if (msg.role === 'user') {
+        el.className = 'chat-msg user';
+        const span = document.createElement('span');
+        span.textContent = msg.content;
+        el.appendChild(span);
+      } else {
+        el.className = 'chat-msg carlos';
+        const avatar = document.createElement('img');
+        avatar.src = '/carlos-logo.png';
+        avatar.className = 'carlos-avatar';
+        avatar.alt = '';
+        el.appendChild(avatar);
+        const span = document.createElement('span');
+        span.innerHTML = renderSimpleMarkdown(msg.content);
+        el.appendChild(span);
+      }
+      container.appendChild(el);
+    }
+    // Restore session key from the latest message
+    const lastMsg = messages[messages.length - 1];
+    if (lastMsg.session_key) {
+      sessionStorage.setItem('chatSessionKey', lastMsg.session_key);
+    }
+    container.scrollTop = container.scrollHeight;
+  } catch (err) {
+    // Silently ignore — chat will still work without history
+  }
+}
+
+function handlePhotoSelect(input) {
+  const file = input.files[0];
+  if (!file) return;
+  if (file.size > 10 * 1024 * 1024) {
+    alert('Image must be under 10MB');
+    input.value = '';
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const img = new Image();
+    img.onload = () => {
+      const MAX = 1024;
+      let w = img.width, h = img.height;
+      if (w > MAX || h > MAX) {
+        if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
+        else { w = Math.round(w * MAX / h); h = MAX; }
+      }
+      const c = document.createElement('canvas');
+      c.width = w; c.height = h;
+      c.getContext('2d').drawImage(img, 0, 0, w, h);
+      _pendingImage = c.toDataURL('image/jpeg', 0.85);
+      document.getElementById('chatPreviewImg').src = _pendingImage;
+      document.getElementById('chatPreview').classList.add('active');
+      document.getElementById('chatInput').focus();
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+  input.value = '';
+}
+
+function clearPhoto() {
+  _pendingImage = null;
+  document.getElementById('chatPreview').classList.remove('active');
+  document.getElementById('chatPreviewImg').src = '';
+}
+
+async function sendChat() {
+  const input = document.getElementById('chatInput');
+  const btn = document.getElementById('chatSend');
+  const messages = document.getElementById('chatMessages');
+  const text = input.value.trim();
+  const image = _pendingImage;
+  if (!text && !image) return;
+
+  const userMsg = document.createElement('div');
+  userMsg.className = 'chat-msg user';
+  if (image) {
+    const img = document.createElement('img');
+    img.src = image;
+    img.className = 'chat-thumb';
+    userMsg.appendChild(img);
+  }
+  if (text) {
+    const span = document.createElement('span');
+    span.textContent = text;
+    userMsg.appendChild(span);
+  }
+  messages.appendChild(userMsg);
+  input.value = '';
+  clearPhoto();
+  messages.scrollTop = messages.scrollHeight;
+
+  const typing = document.createElement('div');
+  typing.className = 'chat-msg typing';
+  typing.textContent = 'Carlos is thinking...';
+  messages.appendChild(typing);
+  messages.scrollTop = messages.scrollHeight;
+  btn.disabled = true;
+  input.disabled = true;
+
+  const carlosMsg = document.createElement('div');
+  carlosMsg.className = 'chat-msg carlos';
+  const avatar = document.createElement('img');
+  avatar.src = '/carlos-logo.png';
+  avatar.className = 'carlos-avatar';
+  avatar.alt = '';
+  carlosMsg.appendChild(avatar);
+  const txt = document.createElement('span');
+  txt.textContent = '';
+  carlosMsg.appendChild(txt);
+
+  try {
+    const token = getToken();
+    const payload = { message: text || '' };
+    if (image) payload.image = image;
+    const existingSessionKey = sessionStorage.getItem('chatSessionKey');
+    if (existingSessionKey) payload.sessionKey = existingSessionKey;
+    const res = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify(payload)
+    });
+
+    if (res.status === 401) { doLogout(); return; }
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let replyStarted = false;
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+      let eventType = '';
+      for (const line of lines) {
+        if (line.startsWith('event: ')) {
+          eventType = line.slice(7);
+        } else if (line.startsWith('data: ')) {
+          const raw = line.slice(6);
+          let d;
+          try { d = JSON.parse(raw); } catch { continue; }
+
+          if (eventType === 'status' && d.status === 'thinking') {
+            typing.textContent = 'Carlos is working...';
+          } else if (eventType === 'delta' && d.delta) {
+            if (!replyStarted) {
+              replyStarted = true;
+              if (typing.parentNode) typing.remove();
+              messages.appendChild(carlosMsg);
+            }
+            txt.textContent += d.delta;
+            messages.scrollTop = messages.scrollHeight;
+          } else if (eventType === 'done') {
+            if (d.sessionKey) sessionStorage.setItem('chatSessionKey', d.sessionKey);
+            if (!replyStarted) {
+              if (typing.parentNode) typing.remove();
+              txt.textContent = d.reply || 'No response received.';
+              messages.appendChild(carlosMsg);
+            }
+            // Layer 1: instant refresh after chat
+            markTabsStale(); reloadActiveTab();
+          } else if (eventType === 'error') {
+            if (!replyStarted) {
+              if (typing.parentNode) typing.remove();
+              messages.appendChild(carlosMsg);
+            }
+            txt.textContent = d.error || 'Carlos encountered an error.';
+          }
+          eventType = '';
+        }
+      }
+    }
+
+    if (!replyStarted && !txt.textContent) {
+      if (typing.parentNode) typing.remove();
+      txt.textContent = 'No response received.';
+      messages.appendChild(carlosMsg);
+    }
+  } catch (err) {
+    console.error('Chat error:', err);
+    if (typing.parentNode) typing.remove();
+    txt.textContent = 'Failed to reach Carlos: ' + (err.message || 'Unknown error');
+    if (!carlosMsg.parentNode) messages.appendChild(carlosMsg);
+  }
+
+  btn.disabled = false;
+  input.disabled = false;
+  input.focus();
+  messages.scrollTop = messages.scrollHeight;
+}
+
+// --- Live Dashboard Refresh ---
+function reloadActiveTab() {
+  const active = document.querySelector('.tab-row button.active');
+  const tab = active ? active.textContent.toLowerCase() : 'overview';
+  if (tab === 'overview') { window._overviewLoaded = false; loadOverview(); }
+  else if (tab === 'weight') { window._weightLoaded = false; loadWeight(); }
+  else if (tab === 'exercise') { window._exerciseLoaded = false; loadExercise(); }
+  else if (tab === 'sleep') { window._sleepLoaded = false; loadSleep(); }
+  else if (tab === 'nutrition') { window._nutritionLoaded = false; loadDays(); }
+}
+
+function markTabsStale() {
+  window._overviewLoaded = false;
+  window._weightLoaded = false;
+  window._exerciseLoaded = false;
+  window._sleepLoaded = false;
+  window._nutritionLoaded = false;
+}
+
+let _evtSource = null;
+let _pollInterval = null;
+
+function startLiveRefresh() {
+  // Layer 2: SSE from /api/events
+  if (_evtSource) { try { _evtSource.close(); } catch {} }
+  const token = getToken();
+  if (token) {
+    _evtSource = new EventSource('/api/events?token=' + encodeURIComponent(token));
+    _evtSource.addEventListener('data-updated', () => { markTabsStale(); reloadActiveTab(); });
+    _evtSource.onerror = () => {}; // browser auto-reconnects
+  }
+  // Layer 3: 60s polling fallback
+  if (_pollInterval) clearInterval(_pollInterval);
+  _pollInterval = setInterval(() => {
+    if (document.visibilityState === 'visible' && getToken()) reloadActiveTab();
+  }, 60000);
+}
+
+function stopLiveRefresh() {
+  if (_evtSource) { try { _evtSource.close(); } catch {} _evtSource = null; }
+  if (_pollInterval) { clearInterval(_pollInterval); _pollInterval = null; }
+}
+
+// --- Init: check for existing token (runs after all DOM elements exist) ---
+if (getToken()) {
+  showDashboard();
+  startLiveRefresh();
+} else {
+  document.getElementById('loginScreen').style.display = '';
+}
+</script>
+</body>
+</html>

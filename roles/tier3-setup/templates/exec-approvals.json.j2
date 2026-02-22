@@ -28,5 +28,8 @@
       "security": "deny",
       "ask": "always"
     }
+{% for agent in active_agents %}
+    ,"{{ agent.id }}": {{ agent.exec_approvals | to_json }}
+{% endfor %}
   }
 }

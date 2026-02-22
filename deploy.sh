@@ -14,6 +14,9 @@ show_help() {
     echo "  --ssh-user USER       Initial SSH User (Default: root for Arch, ubuntu for AWS Ubuntu)"
     echo "  --ssh-key PATH        Path to private key for SSH connection"
     echo "  --ask-pass            Ask for SSH and Sudo passwords"
+    echo "  --agents LIST         Comma-separated agent names to deploy (e.g., carlos,vera)"
+    echo "  --all-agents          Deploy all discovered agents"
+    echo "  --carlos              Shorthand for --agents carlos (transitional)"
     echo "  --non-interactive     Fail if missing arguments instead of prompting"
     echo "  -h, --help            Show this help message"
     echo ""
@@ -29,6 +32,7 @@ LLM_KEY=""
 INTERACTIVE=true
 ASK_PASS=false
 SSH_KEY=""
+DEPLOY_AGENTS=""
 
 # Parse Arguments
 while [[ "$#" -gt 0 ]]; do
@@ -42,6 +46,9 @@ while [[ "$#" -gt 0 ]]; do
         --ssh-key) SSH_KEY="$2"; shift ;;
         --ask-pass) ASK_PASS=true ;;
         --non-interactive) INTERACTIVE=false ;;
+        --agents) DEPLOY_AGENTS="$2"; shift ;;
+        --all-agents) DEPLOY_AGENTS="all" ;;
+        --carlos) DEPLOY_AGENTS="carlos" ;;
         -h|--help) show_help; exit 0 ;;
         *) echo "Unknown parameter passed: $1"; exit 1 ;;
     esac
@@ -124,7 +131,26 @@ if [ "$INTERACTIVE" = true ]; then
             read -s -p "Enter API Key: " LLM_KEY
             echo ""
         else
-            LLM_KEY="ollama" 
+            LLM_KEY="ollama"
+        fi
+    fi
+
+    # Agent Selection
+    if [ -z "$DEPLOY_AGENTS" ]; then
+        echo ""
+        # Discover available agents
+        AVAILABLE_AGENTS=""
+        for yml in roles/tier3-setup/agents/*/agent.yml; do
+            [ -f "$yml" ] || continue
+            agent_id=$(grep '^id:' "$yml" | head -1 | awk '{print $2}')
+            if [ -n "$agent_id" ]; then
+                AVAILABLE_AGENTS="${AVAILABLE_AGENTS:+$AVAILABLE_AGENTS, }$agent_id"
+            fi
+        done
+        if [ -n "$AVAILABLE_AGENTS" ]; then
+            echo "Available agents: $AVAILABLE_AGENTS"
+            read -p "Deploy agents (comma-separated, 'all', or empty for none): " agents_choice
+            DEPLOY_AGENTS="${agents_choice}"
         fi
     fi
 fi
@@ -141,6 +167,7 @@ if [ -z "$LLM_PROVIDER" ]; then LLM_PROVIDER="ollama"; fi
 if [ -z "$LLM_MODEL" ] && [ "$LLM_PROVIDER" == "ollama" ]; then LLM_MODEL="llama3"; fi
 if [ -z "$LLM_URL" ] && [ "$LLM_PROVIDER" == "ollama" ]; then LLM_URL="http://10.0.110.1:11434"; fi
 if [ -z "$LLM_KEY" ]; then LLM_KEY="sk-placeholder"; fi
+if [ -z "$DEPLOY_AGENTS" ]; then DEPLOY_AGENTS=""; fi
 
 
 # --- Execution ---
@@ -153,6 +180,7 @@ echo "User:      $SSH_USER"
 if [ ! -z "$SSH_KEY" ]; then echo "SSH Key:   $SSH_KEY"; fi
 echo "OS Check:  Auto-detect (Arch/Debian/Ubuntu)"
 echo "Provider:  $LLM_PROVIDER"
+echo "Agents:    ${DEPLOY_AGENTS:-none}"
 echo "----------------------------------------"
 
 # Create temporary inventory
@@ -194,7 +222,7 @@ if [ ! -z "$SSH_KEY" ]; then
 fi
 
 ansible-playbook -i "$TEMP_INVENTORY" playbook.yml $ANSIBLE_ARGS \
-    --extra-vars "llm_provider='$LLM_PROVIDER' llm_model='$LLM_MODEL' llm_url='$LLM_URL' llm_key='$LLM_KEY'"
+    --extra-vars "llm_provider='$LLM_PROVIDER' llm_model='$LLM_MODEL' llm_url='$LLM_URL' llm_key='$LLM_KEY' deploy_agents='$DEPLOY_AGENTS'"
 
 # Cleanup
 rm "$TEMP_INVENTORY"

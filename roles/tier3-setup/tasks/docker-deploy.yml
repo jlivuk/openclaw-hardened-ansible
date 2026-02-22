@@ -1,6 +1,42 @@
 ---
 # Podman Tier 3 Deployment Setup
 
+# --- Agent Discovery (Data-Driven) ---
+
+- name: Discover agent projects
+  find:
+    paths: "{{ role_path }}/agents"
+    patterns: "agent.yml"
+    recurse: true
+  delegate_to: localhost
+  become: false
+  register: agent_files
+
+- name: Load agent configurations
+  set_fact:
+    all_agents: "{{ all_agents | default([]) + [lookup('file', item.path) | from_yaml] }}"
+  loop: "{{ agent_files.files | sort(attribute='path') }}"
+  delegate_to: localhost
+  become: false
+  when: agent_files.matched > 0
+
+- name: Filter agents by deploy_agents parameter
+  set_fact:
+    active_agents: >-
+      {%- if deploy_agents | default('') == 'all' -%}
+        {{ all_agents | default([]) | selectattr('enabled', 'equalto', true) | list }}
+      {%- elif deploy_agents | default('') | length > 0 -%}
+        {{ all_agents | default([]) | selectattr('id', 'in', deploy_agents.split(',')) | selectattr('enabled', 'equalto', true) | list }}
+      {%- else -%}
+        []
+      {%- endif -%}
+
+- name: Show active agents
+  debug:
+    msg: "Active agents: {{ active_agents | map(attribute='id') | list }}"
+
+# --- End Agent Discovery ---
+
 - name: Get OpenClaw User UID
   getent:
     database: passwd
@@ -60,8 +96,8 @@
 
 - name: Set Final Secrets
   set_fact:
-    litellm_key: "{{ existing_master_key if (existing_master_key | length > 0) else litellm_master_key_gen.stdout }}"
-    openclaw_token: "{{ existing_openclaw_token if (existing_openclaw_token | length > 0) else openclaw_token_gen.stdout }}"
+    litellm_key: "{{ existing_master_key if (existing_master_key | default('') | length > 0) else litellm_master_key_gen.stdout }}"
+    openclaw_token: "{{ existing_openclaw_token if (existing_openclaw_token | default('') | length > 0) else openclaw_token_gen.stdout }}"
 
 - name: Create .env file for Compose
   template:
@@ -220,6 +256,132 @@
     owner: "{{ openclaw_user }}"
     group: "{{ openclaw_user }}"
     mode: '0600'
+
+# --- Per-Agent Deployment (Data-Driven) ---
+
+- name: Create agent workspace directories
+  file:
+    path: "{{ docker_dir }}/{{ item.workspace }}"
+    state: directory
+    owner: "{{ openclaw_user }}"
+    group: "{{ openclaw_user }}"
+    mode: '0755'
+  loop: "{{ active_agents }}"
+  loop_control:
+    label: "{{ item.id }}"
+
+- name: Create agent memory directories
+  file:
+    path: "{{ docker_dir }}/{{ item.workspace }}/memory"
+    state: directory
+    owner: "{{ openclaw_user }}"
+    group: "{{ openclaw_user }}"
+    mode: '0755'
+  loop: "{{ active_agents }}"
+  loop_control:
+    label: "{{ item.id }}"
+
+- name: Copy agent config files
+  copy:
+    src: "{{ item.id }}-agent/"
+    dest: "{{ docker_dir }}/{{ item.workspace }}/"
+    owner: "{{ openclaw_user }}"
+    group: "{{ openclaw_user }}"
+    mode: '0644'
+  loop: "{{ active_agents }}"
+  loop_control:
+    label: "{{ item.id }}"
+
+- name: Create agent scripts directories
+  file:
+    path: "{{ docker_dir }}/{{ item.scripts_dir }}"
+    state: directory
+    owner: "{{ openclaw_user }}"
+    group: "{{ openclaw_user }}"
+    mode: '0755'
+  loop: "{{ active_agents }}"
+  loop_control:
+    label: "{{ item.id }}"
+
+- name: Copy agent shell scripts
+  copy:
+    src: "{{ item.id }}-scripts/"
+    dest: "{{ docker_dir }}/{{ item.scripts_dir }}/"
+    owner: "{{ openclaw_user }}"
+    group: "{{ openclaw_user }}"
+    mode: '0755'
+  loop: "{{ active_agents }}"
+  loop_control:
+    label: "{{ item.id }}"
+
+- name: Create agent dashboard directories
+  file:
+    path: "{{ docker_dir }}/{{ item.dashboard_dir }}"
+    state: directory
+    owner: "{{ openclaw_user }}"
+    group: "{{ openclaw_user }}"
+    mode: '0755'
+  loop: "{{ active_agents }}"
+  loop_control:
+    label: "{{ item.id }}"
+  when: item.dashboard is defined
+
+- name: Copy agent dashboard files
+  copy:
+    src: "{{ item.id }}-dashboard/"
+    dest: "{{ docker_dir }}/{{ item.dashboard_dir }}/"
+    owner: "{{ openclaw_user }}"
+    group: "{{ openclaw_user }}"
+    mode: '0644'
+  loop: "{{ active_agents }}"
+  loop_control:
+    label: "{{ item.id }}"
+  when: item.dashboard is defined
+
+- name: Deploy agent dashboard Dockerfiles
+  copy:
+    src: "{{ role_path }}/agents/{{ item.id }}/{{ item.dashboard.dockerfile }}"
+    dest: "{{ docker_dir }}/{{ item.dashboard.dockerfile }}"
+    owner: "{{ openclaw_user }}"
+    group: "{{ openclaw_user }}"
+    mode: '0644'
+  loop: "{{ active_agents }}"
+  loop_control:
+    label: "{{ item.id }}"
+  when: item.dashboard is defined
+
+- name: Set Podman permissions for agent workspaces
+  command: "podman unshare chown -R 1000:1000 {{ docker_dir }}/{{ item.workspace }}"
+  loop: "{{ active_agents }}"
+  loop_control:
+    label: "{{ item.id }}"
+  become: true
+  become_user: "{{ openclaw_user }}"
+  environment:
+    XDG_RUNTIME_DIR: "/run/user/{{ ansible_facts['getent_passwd'][openclaw_user][1] }}"
+
+- name: Set Podman permissions for agent scripts
+  command: "podman unshare chown -R 1000:1000 {{ docker_dir }}/{{ item.scripts_dir }}"
+  loop: "{{ active_agents }}"
+  loop_control:
+    label: "{{ item.id }}"
+  become: true
+  become_user: "{{ openclaw_user }}"
+  environment:
+    XDG_RUNTIME_DIR: "/run/user/{{ ansible_facts['getent_passwd'][openclaw_user][1] }}"
+
+- name: Set Podman permissions for agent dashboards
+  command: "podman unshare chown -R 1000:1000 {{ docker_dir }}/{{ item.dashboard_dir }}"
+  loop: "{{ active_agents }}"
+  loop_control:
+    label: "{{ item.id }}"
+  become: true
+  become_user: "{{ openclaw_user }}"
+  environment:
+    XDG_RUNTIME_DIR: "/run/user/{{ ansible_facts['getent_passwd'][openclaw_user][1] }}"
+  when: item.dashboard is defined
+
+# --- End Per-Agent Deployment ---
 
 - name: Stop Existing Stack (Clean State)
   shell: |
