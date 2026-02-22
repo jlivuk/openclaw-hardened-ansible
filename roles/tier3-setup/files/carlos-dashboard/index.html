@@ -50,8 +50,8 @@
   .weight-change.down { color: var(--green); }
   .weight-change.up { color: var(--red); }
   .weight-change.flat { color: var(--muted); }
-  .tab-row { display: flex; gap: 8px; margin-bottom: 16px; }
-  .tab-row button { background: var(--surface); border: 1px solid var(--border); color: var(--muted); padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 0.85em; }
+  .tab-row { display: flex; gap: 8px; margin-bottom: 16px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .tab-row button { background: var(--surface); border: 1px solid var(--border); color: var(--muted); padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 0.85em; white-space: nowrap; flex-shrink: 0; }
   .tab-row button.active { color: var(--text); border-color: var(--blue); }
   .progress-bar { background: var(--bg); border-radius: 4px; height: 8px; margin: 4px 0 8px; overflow: hidden; }
   .progress-fill { height: 100%; border-radius: 4px; transition: width 0.3s; }
@@ -232,6 +232,7 @@
   <button onclick="switchTab('weight')">Weight</button>
   <button onclick="switchTab('exercise')">Exercise</button>
   <button onclick="switchTab('sleep')">Sleep</button>
+  <button onclick="switchTab('health')">Health</button>
 </div>
 <div id="overview-tab">
   <div id="overview-content"><div class="loading">Loading summary...</div></div>
@@ -248,6 +249,9 @@
 </div>
 <div id="sleep-tab" style="display:none">
   <div id="sleep-content"><div class="loading">Loading sleep data...</div></div>
+</div>
+<div id="health-tab" style="display:none">
+  <div id="health-content"><div class="loading">Loading health trends...</div></div>
 </div>
 <div id="admin-tab" style="display:none">
   <div id="admin-content"><div class="loading">Loading users...</div></div>
@@ -788,6 +792,7 @@ function showDashboard() {
   window._weightLoaded = false;
   window._exerciseLoaded = false;
   window._sleepLoaded = false;
+  window._healthLoaded = false;
   window._nutritionLoaded = false;
   window._adminLoaded = false;
   loadOverview();
@@ -826,11 +831,13 @@ function switchTab(tab) {
   document.getElementById('weight-tab').style.display = tab === 'weight' ? '' : 'none';
   document.getElementById('exercise-tab').style.display = tab === 'exercise' ? '' : 'none';
   document.getElementById('sleep-tab').style.display = tab === 'sleep' ? '' : 'none';
+  document.getElementById('health-tab').style.display = tab === 'health' ? '' : 'none';
   document.getElementById('admin-tab').style.display = tab === 'admin' ? '' : 'none';
   if (tab === 'overview' && !window._overviewLoaded) loadOverview();
   if (tab === 'weight' && !window._weightLoaded) loadWeight();
   if (tab === 'exercise' && !window._exerciseLoaded) loadExercise();
   if (tab === 'sleep' && !window._sleepLoaded) loadSleep();
+  if (tab === 'health' && !window._healthLoaded) loadHealth();
   if (tab === 'nutrition' && !window._nutritionLoaded) loadDays();
   if (tab === 'admin' && !window._adminLoaded) loadAdmin();
 }
@@ -1419,13 +1426,15 @@ function renderExerciseChart(data) {
   const recent = (data.recent || []).slice(0, 10);
   if (recent.length) {
     html += '<h3>Recent Workouts</h3>';
-    html += '<table><tr><th>Date</th><th>Activity</th><th>Duration</th><th>Calories</th><th>Notes</th></tr>';
+    html += '<table><tr><th>Date</th><th>Activity</th><th>Duration</th><th>Calories</th><th>Distance</th><th>HR</th><th>Notes</th></tr>';
     for (const r of recent) {
       html += '<tr>';
       html += '<td>' + esc(r.date) + '</td>';
-      html += '<td>' + esc(r.activity) + '</td>';
+      html += '<td>' + esc(r.activity) + (r.source === 'apple_health' ? ' <span style="color:var(--green);font-size:0.75em;font-weight:600">[AH]</span>' : '') + '</td>';
       html += '<td>' + esc(r.duration) + '</td>';
-      html += '<td>' + (r.calories ? r.calories.toLocaleString() : '—') + '</td>';
+      html += '<td>' + (r.calories ? r.calories.toLocaleString() : '\u2014') + '</td>';
+      html += '<td>' + (r.distance ? esc(r.distance) : '\u2014') + '</td>';
+      html += '<td>' + (r.avg_heart_rate ? r.avg_heart_rate + ' bpm' : '\u2014') + '</td>';
       html += '<td>' + esc(r.notes) + '</td>';
       html += '</tr>';
     }
@@ -1571,6 +1580,110 @@ async function loadSleep() {
     document.getElementById('sleep-content').innerHTML = renderSleepChart(data);
   } catch {
     document.getElementById('sleep-content').innerHTML = '<p class="empty">Failed to load sleep data</p>';
+  }
+}
+
+// --- Health Trends Tab ---
+let _healthRange = '3m';
+function setHealthRange(range) { _healthRange = range; window._healthLoaded = false; loadHealth(); }
+
+function renderVO2Chart(data) {
+  const entries = (data.entries || []).slice().sort((a, b) => a.date.localeCompare(b.date));
+  const stats = data.stats || {};
+  let html = '<div class="card"><h2>Health Trends</h2>';
+
+  // Range selector
+  const ranges = [['1w','1W'],['1m','1M'],['3m','3M'],['1y','1Y']];
+  html += '<div class="range-row">' + ranges.map(([val, label]) =>
+    `<button class="range-btn${_healthRange === val ? ' active' : ''}" onclick="setHealthRange('${val}')">${label}</button>`
+  ).join('') + '</div>';
+
+  // VO2 Max section header
+  html += '<h3>VO2 Max</h3>';
+
+  // Stat row
+  html += '<div class="stat-row">';
+  html += '<div class="stat"><div class="label">Current</div><div class="value blue">' + (stats.current != null ? stats.current + '' : '--') + '</div><div class="sub">mL/kg/min</div></div>';
+  const c7 = stats.change7d;
+  const c7class = c7 > 0 ? 'up' : c7 < 0 ? 'down' : '';
+  const c7sign = c7 > 0 ? '+' : '';
+  html += '<div class="stat"><div class="label">7-Day Change</div><div class="value ' + c7class + '">' + (c7 != null ? c7sign + c7 : '--') + '</div></div>';
+  html += '<div class="stat"><div class="label">Average</div><div class="value">' + (stats.avg != null ? stats.avg + '' : '--') + '</div></div>';
+  html += '<div class="stat"><div class="label">Days Tracked</div><div class="value">' + (stats.daysTracked || 0) + '</div></div>';
+  html += '</div>';
+
+  // SVG line chart
+  if (entries.length >= 2) {
+    const values = entries.map(e => e.value);
+    const min = Math.min(...values) - 1;
+    const max = Math.max(...values) + 1;
+    const range = max - min || 1;
+    const w = 760, h = 180, pad = 40;
+    const pw = (w - pad * 2) / (entries.length - 1 || 1);
+    const points = entries.map((e, i) => ({
+      x: pad + i * pw,
+      y: pad + (1 - (e.value - min) / range) * (h - pad * 2),
+      value: e.value, date: e.date
+    }));
+    const line = points.map((p, i) => (i === 0 ? 'M' : 'L') + p.x + ',' + p.y).join(' ');
+    const area = line + ' L' + points[points.length - 1].x + ',' + (h - pad) + ' L' + points[0].x + ',' + (h - pad) + ' Z';
+    const dotR = entries.length <= 30 ? 3 : entries.length <= 90 ? 1.5 : 0;
+
+    html += '<div class="weight-chart" style="height:200px"><svg viewBox="0 0 ' + w + ' ' + h + '" style="width:100%;height:100%">';
+
+    // Y-axis grid
+    const steps = 4;
+    for (let i = 0; i <= steps; i++) {
+      const y = pad + (i / steps) * (h - pad * 2);
+      const val = (max - (i / steps) * range).toFixed(1);
+      html += '<line x1="' + pad + '" y1="' + y + '" x2="' + (w - pad) + '" y2="' + y + '" stroke="var(--border)" stroke-width="0.5"/>';
+      html += '<text x="' + (pad - 4) + '" y="' + (y + 4) + '" fill="var(--muted)" font-size="9" text-anchor="end">' + val + '</text>';
+    }
+
+    // Y-axis label
+    html += '<text x="10" y="' + (pad + (h - pad * 2) / 2) + '" fill="var(--muted)" font-size="9" text-anchor="middle" transform="rotate(-90,10,' + (pad + (h - pad * 2) / 2) + ')">mL/kg/min</text>';
+
+    html += '<path d="' + area + '" fill="var(--blue)" opacity="0.1"/>';
+    html += '<path d="' + line + '" fill="none" stroke="var(--blue)" stroke-width="2"/>';
+    if (dotR > 0) {
+      for (const p of points) {
+        html += '<circle cx="' + p.x + '" cy="' + p.y + '" r="' + dotR + '" fill="var(--blue)"><title>' + esc(p.date) + ': ' + p.value + ' mL/kg/min</title></circle>';
+      }
+    }
+
+    // X-axis labels
+    const labelCount = Math.min(6, entries.length);
+    for (let i = 0; i < labelCount; i++) {
+      const idx = Math.round(i * (entries.length - 1) / (labelCount - 1 || 1));
+      const p = points[idx];
+      html += '<text x="' + p.x + '" y="' + (h - 6) + '" fill="var(--muted)" font-size="9" text-anchor="middle">' + esc(entries[idx].date.slice(5)) + '</text>';
+    }
+
+    html += '</svg></div>';
+  } else if (entries.length === 1) {
+    html += '<p style="color:var(--muted);font-size:0.9em">Only 1 data point — need at least 2 to show a trend line.</p>';
+  }
+
+  html += '</div>';
+  return html;
+}
+
+async function loadHealth() {
+  try {
+    const r = await apiFetch('/api/health/vo2-max?range=' + _healthRange);
+    const data = await r.json();
+    window._healthLoaded = true;
+    if (!data.entries || !data.entries.length) {
+      document.getElementById('health-content').innerHTML = '<div class="card"><div class="empty-state">' +
+        '<div class="empty-icon">&hearts;</div>' +
+        '<div class="empty-heading">No VO2 Max data yet</div>' +
+        '<div class="empty-text">Keep working out to build your VO2 Max trend. Data syncs automatically from Apple Health.</div>' +
+        '</div></div>';
+      return;
+    }
+    document.getElementById('health-content').innerHTML = renderVO2Chart(data);
+  } catch {
+    document.getElementById('health-content').innerHTML = '<p class="empty">Failed to load health trend data</p>';
   }
 }
 
@@ -2213,6 +2326,7 @@ function reloadActiveTab() {
   else if (tab === 'weight') { window._weightLoaded = false; loadWeight(); }
   else if (tab === 'exercise') { window._exerciseLoaded = false; loadExercise(); }
   else if (tab === 'sleep') { window._sleepLoaded = false; loadSleep(); }
+  else if (tab === 'health') { window._healthLoaded = false; loadHealth(); }
   else if (tab === 'nutrition') { window._nutritionLoaded = false; loadDays(); }
 }
 
@@ -2221,6 +2335,7 @@ function markTabsStale() {
   window._weightLoaded = false;
   window._exerciseLoaded = false;
   window._sleepLoaded = false;
+  window._healthLoaded = false;
   window._nutritionLoaded = false;
 }
 

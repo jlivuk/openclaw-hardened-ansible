@@ -131,6 +131,7 @@ function provisionUsers() {
     provisionSingleUser(user.username);
     const { db, memoryDir } = userPaths(user.username);
     ensureAppleHealthTable(db);
+    ensureExerciseColumns(db);
     ensureFeedbackTable(db);
     ensureStreaksTable(db);
     backfillHealthFromMarkdown(db, memoryDir);
@@ -146,7 +147,7 @@ function provisionSingleUser(username) {
       execFileSync('sqlite3', [db, `
         CREATE TABLE IF NOT EXISTS meals (id INTEGER PRIMARY KEY AUTOINCREMENT, date TEXT NOT NULL, time TEXT NOT NULL, meal TEXT NOT NULL, calories INTEGER DEFAULT 0, protein TEXT DEFAULT '', carbs TEXT DEFAULT '', fat TEXT DEFAULT '', notes TEXT DEFAULT '', created_at TEXT DEFAULT (datetime('now')));
         CREATE TABLE IF NOT EXISTS hydration (id INTEGER PRIMARY KEY AUTOINCREMENT, date TEXT NOT NULL, time TEXT NOT NULL, glass_num INTEGER NOT NULL, created_at TEXT DEFAULT (datetime('now')));
-        CREATE TABLE IF NOT EXISTS exercise (id INTEGER PRIMARY KEY AUTOINCREMENT, date TEXT NOT NULL, time TEXT NOT NULL, activity TEXT NOT NULL, duration TEXT DEFAULT '', calories_burned INTEGER DEFAULT 0, notes TEXT DEFAULT '', created_at TEXT DEFAULT (datetime('now')));
+        CREATE TABLE IF NOT EXISTS exercise (id INTEGER PRIMARY KEY AUTOINCREMENT, date TEXT NOT NULL, time TEXT NOT NULL, activity TEXT NOT NULL, duration TEXT DEFAULT '', calories_burned INTEGER DEFAULT 0, notes TEXT DEFAULT '', source TEXT DEFAULT 'manual', distance TEXT DEFAULT '', avg_heart_rate INTEGER DEFAULT 0, created_at TEXT DEFAULT (datetime('now')));
         CREATE TABLE IF NOT EXISTS weight (id INTEGER PRIMARY KEY AUTOINCREMENT, date TEXT NOT NULL UNIQUE, weight_lbs REAL NOT NULL, notes TEXT DEFAULT '', created_at TEXT DEFAULT (datetime('now')));
         CREATE TABLE IF NOT EXISTS user_preferences (key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at TEXT DEFAULT (datetime('now')));
         CREATE TABLE IF NOT EXISTS chat_history (id INTEGER PRIMARY KEY AUTOINCREMENT, role TEXT NOT NULL, content TEXT NOT NULL, session_key TEXT, created_at TEXT DEFAULT (datetime('now')));
@@ -204,6 +205,14 @@ function ensureAppleHealthTable(dbPath) {
     }
   } catch (err) {
     log.error('Failed to ensure apple_health table', { error: err.message });
+  }
+}
+
+// --- Exercise columns migration ---
+function ensureExerciseColumns(dbPath) {
+  const newCols = [['source', "TEXT DEFAULT 'manual'"], ['distance', "TEXT DEFAULT ''"], ['avg_heart_rate', 'INTEGER DEFAULT 0']];
+  for (const [col, type] of newCols) {
+    try { execFileSync('sqlite3', [dbPath, `ALTER TABLE exercise ADD COLUMN ${col} ${type};`], { timeout: 5000 }); } catch {}
   }
 }
 
@@ -366,6 +375,56 @@ function setupBackupWatchers() {
 
 provisionUsers();
 setupBackupWatchers();
+
+// --- Apple Health workout type mapping ---
+// iPhone Shortcut must export a "workouts" array in payload.data alongside "metrics".
+// Each workout object fields:
+//   start       (string, required) — ISO 8601 datetime, e.g. "2026-02-22T07:30:00-06:00"
+//   end         (string, optional) — ISO 8601 datetime
+//   type        (string, required) — HKWorkoutActivityType* string or friendly name (see mapping below)
+//   name        (string, optional) — workout name/label, e.g. "Morning Run"
+//   duration    (number, required) — duration in minutes (must be > 0)
+//   calories    (number, optional) — total calories burned (default 0)
+//   distance    (number, optional) — distance value (default: omitted)
+//   distance_unit (string, optional) — "mi" or "km" (default "mi")
+//   heart_rate_avg (number, optional) — average heart rate in bpm (default 0)
+//
+// Supported HKWorkoutActivityType strings:
+//   HKWorkoutActivityTypeRunning, HKWorkoutActivityTypeCycling,
+//   HKWorkoutActivityTypeSwimming, HKWorkoutActivityTypeWalking,
+//   HKWorkoutActivityTypeHiking, HKWorkoutActivityTypeTraditionalStrengthTraining,
+//   HKWorkoutActivityTypeYoga, HKWorkoutActivityTypeHighIntensityIntervalTraining,
+//   HKWorkoutActivityTypePilates, HKWorkoutActivityTypeDance,
+//   HKWorkoutActivityTypeRowing, HKWorkoutActivityTypeElliptical,
+//   HKWorkoutActivityTypeStairClimbing, HKWorkoutActivityTypeCoreTraining,
+//   HKWorkoutActivityTypeFunctionalStrengthTraining, HKWorkoutActivityTypeCooldown
+// Friendly names (Running, Cycling, etc.) are also accepted directly.
+// Unrecognized types are inserted as-is.
+const WORKOUT_TYPES = {
+  'HKWorkoutActivityTypeRunning': 'Running',
+  'HKWorkoutActivityTypeCycling': 'Cycling',
+  'HKWorkoutActivityTypeSwimming': 'Swimming',
+  'HKWorkoutActivityTypeWalking': 'Walking',
+  'HKWorkoutActivityTypeHiking': 'Hiking',
+  'HKWorkoutActivityTypeTraditionalStrengthTraining': 'Weight Training',
+  'HKWorkoutActivityTypeYoga': 'Yoga',
+  'HKWorkoutActivityTypeHighIntensityIntervalTraining': 'HIIT',
+  'HKWorkoutActivityTypePilates': 'Pilates',
+  'HKWorkoutActivityTypeDance': 'Dance',
+  'HKWorkoutActivityTypeRowing': 'Rowing',
+  'HKWorkoutActivityTypeElliptical': 'Elliptical',
+  'HKWorkoutActivityTypeStairClimbing': 'Stair Climbing',
+  'HKWorkoutActivityTypeCoreTraining': 'Core Training',
+  'HKWorkoutActivityTypeFunctionalStrengthTraining': 'Functional Training',
+  'HKWorkoutActivityTypeCooldown': 'Cooldown',
+  'Running': 'Running', 'Cycling': 'Cycling', 'Swimming': 'Swimming',
+  'Walking': 'Walking', 'Hiking': 'Hiking', 'Yoga': 'Yoga',
+  'HIIT': 'HIIT', 'Weight Training': 'Weight Training',
+  'Pilates': 'Pilates', 'Dance': 'Dance', 'Rowing': 'Rowing',
+  'Elliptical': 'Elliptical', 'Stair Climbing': 'Stair Climbing',
+  'Core Training': 'Core Training', 'Functional Training': 'Functional Training',
+  'Cooldown': 'Cooldown'
+};
 
 // Login rate limiting: max 5 failed attempts per IP per 15 minutes
 const loginAttempts = new Map();
@@ -619,6 +678,7 @@ const server = http.createServer(async (req, res) => {
           provisionSingleUser(username);
           const newUserPaths = userPaths(username);
           ensureAppleHealthTable(newUserPaths.db);
+          ensureExerciseColumns(newUserPaths.db);
           ensureStreaksTable(newUserPaths.db);
           log.info('User created', { user: username, role: userRole, by: authUser.username });
           jsonResp(res, 201, { ok: true, username, apiKey });
@@ -959,7 +1019,7 @@ const server = http.createServer(async (req, res) => {
       try {
         const meals = dbQuery(`SELECT time, meal, calories, protein, carbs, fat, notes FROM meals WHERE date='${date}' ORDER BY CASE WHEN time LIKE '%AM' THEN 0 ELSE 1 END, CAST(REPLACE(SUBSTR(time,1,INSTR(time,':')-1),'12','0') AS INTEGER) + CASE WHEN time LIKE '%PM' THEN 12 ELSE 0 END, SUBSTR(time,INSTR(time,':')+1,2)`, db);
         const hydration = dbQuery(`SELECT time, glass_num FROM hydration WHERE date='${date}' ORDER BY glass_num`, db);
-        const exercise = dbQuery(`SELECT time, activity, duration, calories_burned, notes FROM exercise WHERE date='${date}' ORDER BY CASE WHEN time LIKE '%AM' THEN 0 ELSE 1 END, CAST(REPLACE(SUBSTR(time,1,INSTR(time,':')-1),'12','0') AS INTEGER) + CASE WHEN time LIKE '%PM' THEN 12 ELSE 0 END, SUBSTR(time,INSTR(time,':')+1,2)`, db);
+        const exercise = dbQuery(`SELECT time, activity, duration, calories_burned, notes, source, distance, avg_heart_rate FROM exercise WHERE date='${date}' ORDER BY CASE WHEN time LIKE '%AM' THEN 0 ELSE 1 END, CAST(REPLACE(SUBSTR(time,1,INSTR(time,':')-1),'12','0') AS INTEGER) + CASE WHEN time LIKE '%PM' THEN 12 ELSE 0 END, SUBSTR(time,INSTR(time,':')+1,2)`, db);
 
         const sleepRows = dbQuery(`SELECT duration_minutes, notes, source FROM sleep WHERE date='${date}'`, db);
         const health = readHealthFromSqlite(db, date) || parseHealthFromMarkdown(memoryDir, date);
@@ -1046,7 +1106,7 @@ const server = http.createServer(async (req, res) => {
     if (req.url === '/api/exercise') {
       try {
         // 1. Recent exercises (last 30)
-        const recent = dbQuery("SELECT date, time, activity, duration, calories_burned AS calories, notes FROM exercise ORDER BY date DESC, rowid DESC LIMIT 30", db);
+        const recent = dbQuery("SELECT date, time, activity, duration, calories_burned AS calories, notes, source, distance, avg_heart_rate FROM exercise ORDER BY date DESC, rowid DESC LIMIT 30", db);
 
         // 2. This week's stats (last 7 days)
         const weekStart = new Date(); weekStart.setDate(weekStart.getDate() - 6);
@@ -1118,14 +1178,59 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // GET /api/health/vo2-max — VO2 Max trend data
+    if (req.url === '/api/health/vo2-max' || req.url.startsWith('/api/health/vo2-max?')) {
+      try {
+        const url = new URL(req.url, `http://${req.headers.host}`);
+        const range = url.searchParams.get('range') || '3m';
+        const validRanges = { '1w': 7, '1m': 30, '3m': 90, '1y': 365 };
+        const daysBack = validRanges[range] || 90;
+        const d = new Date();
+        d.setDate(d.getDate() - daysBack);
+        const startDate = d.toISOString().slice(0, 10);
+
+        const entries = dbQuery(`SELECT date, vo2_max AS value FROM apple_health WHERE vo2_max IS NOT NULL AND vo2_max > 0 AND date >= '${startDate}' ORDER BY date DESC`, db);
+        const values = entries.map(e => e.value);
+        const current = values.length ? values[0] : null;
+        const avg = values.length ? Math.round(values.reduce((s, v) => s + v, 0) / values.length * 10) / 10 : null;
+
+        // change7d: difference between latest and value from ~7 days ago
+        let change7d = null;
+        if (entries.length >= 2) {
+          const latest = entries[0];
+          const cutoff = new Date(latest.date);
+          cutoff.setDate(cutoff.getDate() - 7);
+          const cutStr = cutoff.toISOString().slice(0, 10);
+          const older = entries.find(e => e.date <= cutStr);
+          if (older) change7d = Math.round((latest.value - older.value) * 10) / 10;
+        }
+
+        const stats = {
+          current,
+          avg,
+          min: values.length ? Math.round(Math.min(...values) * 10) / 10 : null,
+          max: values.length ? Math.round(Math.max(...values) * 10) / 10 : null,
+          daysTracked: values.length,
+          change7d
+        };
+
+        jsonResp(res, 200, { entries, stats, range });
+      } catch (err) {
+        log.error('VO2 Max data error', { error: err.message });
+        jsonResp(res, 200, { entries: [], stats: { current: null, avg: null, min: null, max: null, daysTracked: 0, change7d: null }, range: '3m' });
+      }
+      return;
+    }
+
     // POST /api/health-sync — receive Apple Health data
     if (req.url === '/api/health-sync' && req.method === 'POST') {
       try {
         const body = await readBody(req, 5 * 1024 * 1024);
         const payload = JSON.parse(body);
         const metrics = payload?.data?.metrics || [];
-        if (!metrics.length) {
-          jsonResp(res, 400, { ok: false, error: 'No metrics found' });
+        const workouts = payload?.data?.workouts || [];
+        if (!metrics.length && !workouts.length) {
+          jsonResp(res, 400, { ok: false, error: 'No metrics or workouts found' });
           return;
         }
 
@@ -1187,6 +1292,28 @@ const server = http.createServer(async (req, res) => {
             section += `| Sleep | ${sh}h ${sm}m |\n`;
           }
 
+          // Add workouts sub-section to markdown if any exist for this date
+          const dateWorkouts = workouts.filter(w => w.start?.slice(0, 10) === date);
+          if (dateWorkouts.length) {
+            section += '\n### Workouts\n| Time | Activity | Duration | Calories | Distance | HR |\n|------|----------|----------|----------|----------|----|\n';
+            for (const w of dateWorkouts) {
+              const wDate = new Date(w.start);
+              const wHour = wDate.getHours();
+              const wMin = wDate.getMinutes();
+              const wAmPm = wHour >= 12 ? 'PM' : 'AM';
+              const wH12 = wHour % 12 || 12;
+              const wTimeStr = `${wH12}:${String(wMin).padStart(2, '0')} ${wAmPm}`;
+              const mdSafe = (s) => String(s).replace(/[|\n\r]/g, ' ');
+              const wActivity = mdSafe((WORKOUT_TYPES[w.type] || w.type || 'Other').slice(0, 100));
+              const wDur = w.duration > 0 ? `${Math.round(w.duration)} min` : '--';
+              const wCal = w.calories > 0 ? `${Math.round(w.calories)} cal` : '--';
+              const wDistUnit = ['mi', 'km'].includes(w.distance_unit) ? w.distance_unit : 'mi';
+              const wDist = w.distance > 0 ? `${Math.round(w.distance * 10) / 10} ${wDistUnit}` : '--';
+              const wHr = w.heart_rate_avg > 0 ? `${Math.round(w.heart_rate_avg)} bpm` : '--';
+              section += `| ${wTimeStr} | ${wActivity} | ${wDur} | ${wCal} | ${wDist} | ${wHr} |\n`;
+            }
+          }
+
           const filePath = path.join(memoryDir, `${date}.md`);
           let content = '';
           try { content = fs.readFileSync(filePath, 'utf8'); } catch (err) { if (err.code !== 'ENOENT') log.warn('Health sync file read error', { file: filePath, error: err.message }); }
@@ -1234,6 +1361,92 @@ const server = http.createServer(async (req, res) => {
           }
 
           synced.push(date);
+        }
+
+        // Handle workout data from Apple Health
+        let workoutsSynced = 0;
+        const workoutDates = new Set();
+        if (workouts.length) {
+          // Helper: parse time string like "7:30 AM" to minutes since midnight
+          const timeToMinutes = (t) => {
+            const m = String(t).match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+            if (!m) return -1;
+            let h = parseInt(m[1]);
+            const min = parseInt(m[2]);
+            const ampm = m[3].toUpperCase();
+            if (ampm === 'PM' && h !== 12) h += 12;
+            if (ampm === 'AM' && h === 12) h = 0;
+            return h * 60 + min;
+          };
+
+          // Helper: extract numeric value from flat number or nested {qty, units} object
+          const numVal = (v) => { if (v == null) return 0; if (typeof v === 'object' && v.qty != null) return parseFloat(v.qty); return parseFloat(v); };
+          const strUnit = (v, fallback) => { if (v && typeof v === 'object' && v.units) return v.units; return fallback; };
+
+          for (const w of workouts) {
+            const wDate = w.start?.slice(0, 10);
+            if (!wDate || !/^\d{4}-\d{2}-\d{2}$/.test(wDate)) continue;
+            // Health Auto Export uses "name" for activity; our doc uses "type"
+            const rawType = w.name || w.type || '';
+            const wType = (WORKOUT_TYPES[rawType] || String(rawType)).slice(0, 100);
+            if (!wType) continue;
+            let dur = parseFloat(w.duration);
+            if (!isFinite(dur) || dur <= 0) continue;
+            // Health Auto Export sends duration in seconds; convert if > 200 (heuristic: no workout is 200+ minutes but many are 200+ seconds)
+            if (dur > 200) dur = dur / 60;
+
+            // Format time from start — handles both ISO 8601 and "YYYY-MM-DD HH:MM:SS +0000"
+            const startDt = new Date(w.start);
+            if (isNaN(startDt.getTime())) continue;
+            const sHour = startDt.getHours();
+            const sMin = startDt.getMinutes();
+            const sAmPm = sHour >= 12 ? 'PM' : 'AM';
+            const sH12 = sHour % 12 || 12;
+            const wTime = `${sH12}:${String(sMin).padStart(2, '0')} ${sAmPm}`;
+            const wMinutes = sHour * 60 + sMin;
+
+            const wDuration = `${Math.round(dur)} min`;
+            // Calories: check activeEnergy.qty, totalEnergy.qty, or flat calories
+            const rawCal = numVal(w.activeEnergy) || numVal(w.totalEnergy) || numVal(w.calories);
+            const wCal = isFinite(rawCal) && rawCal > 0 ? Math.round(rawCal) : 0;
+            // Distance: check distance.qty or flat distance
+            const rawDist = numVal(w.distance);
+            const rawDistUnit = strUnit(w.distance, w.distance_unit || 'mi');
+            const wDistUnit = ['mi', 'km', 'yd', 'm'].includes(rawDistUnit) ? rawDistUnit : 'mi';
+            const wDist = isFinite(rawDist) && rawDist > 0 ? `${Math.round(rawDist * 10) / 10} ${wDistUnit}` : '';
+            // Heart rate: check heartRateAvg, avgHeartRate, or heart_rate_avg (flat or nested)
+            const rawHr = numVal(w.heartRateAvg) || numVal(w.avgHeartRate) || numVal(w.heart_rate_avg);
+            const wHr = isFinite(rawHr) && rawHr > 0 ? Math.round(rawHr) : 0;
+            const wNotes = (w.name || '').slice(0, 200);
+
+            // Dedup: check existing exercise rows for same date
+            try {
+              const existing = dbQuery(`SELECT time, activity FROM exercise WHERE date='${escapeSql(wDate)}'`, db);
+              let isDup = false;
+              for (const row of existing) {
+                if (row.activity.toLowerCase() === wType.toLowerCase()) {
+                  const existingMin = timeToMinutes(row.time);
+                  if (existingMin >= 0 && Math.abs(existingMin - wMinutes) <= 30) {
+                    isDup = true;
+                    break;
+                  }
+                }
+              }
+              if (isDup) continue;
+            } catch {}
+
+            // Insert workout into exercise table
+            try {
+              execFileSync('sqlite3', [db, `INSERT INTO exercise (date, time, activity, duration, calories_burned, notes, source, distance, avg_heart_rate) VALUES ('${escapeSql(wDate)}', '${escapeSql(wTime)}', '${escapeSql(wType)}', '${escapeSql(wDuration)}', ${wCal}, '${escapeSql(wNotes)}', 'apple_health', '${escapeSql(wDist)}', ${wHr});`], { timeout: 5000 });
+              workoutsSynced++;
+              workoutDates.add(wDate);
+            } catch (err) {
+              log.warn('Health sync workout insert failed', { date: wDate, activity: wType, error: err.message });
+            }
+          }
+          if (workoutsSynced > 0) {
+            log.info('Health sync workouts', { user: authUser.username, count: workoutsSynced, dates: [...workoutDates] });
+          }
         }
 
         // Handle weight data
@@ -1338,17 +1551,17 @@ const server = http.createServer(async (req, res) => {
         const format = params.get('format') || 'json';
         const meals = dbQuery('SELECT date, time, meal, calories, protein, carbs, fat, notes FROM meals ORDER BY date, time', db);
         const hydration = dbQuery('SELECT date, time, glass_num FROM hydration ORDER BY date, time', db);
-        const exercise = dbQuery('SELECT date, time, activity, duration, calories_burned, notes FROM exercise ORDER BY date, time', db);
+        const exercise = dbQuery('SELECT date, time, activity, duration, calories_burned, notes, source, distance, avg_heart_rate FROM exercise ORDER BY date, time', db);
         const weight = dbQuery('SELECT date, weight_lbs, notes FROM weight ORDER BY date', db);
         const sleep = dbQuery('SELECT date, duration_minutes, notes, source FROM sleep ORDER BY date', db);
 
         if (format === 'csv') {
-          let csv = 'Table,Date,Time,Name,Calories,Protein,Carbs,Fat,Notes\n';
-          for (const m of meals) csv += `Meal,${m.date},${m.time},"${(m.meal || '').replace(/"/g, '""')}",${m.calories || 0},${m.protein || ''},${m.carbs || ''},${m.fat || ''},"${(m.notes || '').replace(/"/g, '""')}"\n`;
-          for (const h of hydration) csv += `Hydration,${h.date},${h.time},Glass ${h.glass_num},,,,, \n`;
-          for (const e of exercise) csv += `Exercise,${e.date},${e.time},"${(e.activity || '').replace(/"/g, '""')}",${e.calories_burned || ''},,,,"${(e.notes || '').replace(/"/g, '""')}"\n`;
-          for (const w of weight) csv += `Weight,${w.date},,${w.weight_lbs} lbs,,,,"${(w.notes || '').replace(/"/g, '""')}"\n`;
-          for (const s of sleep) csv += `Sleep,${s.date},,${s.duration_minutes} min,,,,,"${(s.notes || '').replace(/"/g, '""')}"\n`;
+          let csv = 'Table,Date,Time,Name,Calories,Protein,Carbs,Fat,Notes,Source,Distance,AvgHeartRate\n';
+          for (const m of meals) csv += `Meal,${m.date},${m.time},"${(m.meal || '').replace(/"/g, '""')}",${m.calories || 0},${m.protein || ''},${m.carbs || ''},${m.fat || ''},"${(m.notes || '').replace(/"/g, '""')}",,,\n`;
+          for (const h of hydration) csv += `Hydration,${h.date},${h.time},Glass ${h.glass_num},,,,,,,,\n`;
+          for (const e of exercise) csv += `Exercise,${e.date},${e.time},"${(e.activity || '').replace(/"/g, '""')}",${e.calories_burned || ''},,,,"${(e.notes || '').replace(/"/g, '""')}",${e.source || 'manual'},"${(e.distance || '').replace(/"/g, '""')}",${e.avg_heart_rate || 0}\n`;
+          for (const w of weight) csv += `Weight,${w.date},,${w.weight_lbs} lbs,,,,"${(w.notes || '').replace(/"/g, '""')}",,,\n`;
+          for (const s of sleep) csv += `Sleep,${s.date},,${s.duration_minutes} min,,,,,"${(s.notes || '').replace(/"/g, '""')}",,,\n`;
           res.writeHead(200, { 'Content-Type': 'text/csv', 'Content-Disposition': 'attachment; filename="carlos-export.csv"' });
           res.end(csv);
         } else {

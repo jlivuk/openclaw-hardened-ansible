@@ -1,0 +1,1245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vera — Home Maintenance</title>
+<style>
+  :root { --bg: #0d1117; --surface: #161b22; --border: #30363d; --text: #e6edf3; --muted: #8b949e; --green: #3fb950; --blue: #58a6ff; --orange: #d29922; --red: #f85149; --teal: #39d2c0; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); padding: 20px; max-width: 800px; margin: 0 auto; }
+  h1 { font-size: 1.6em; margin-bottom: 4px; }
+  .subtitle { color: var(--muted); margin-bottom: 24px; font-size: 0.9em; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-bottom: 12px; }
+  .card h2 { font-size: 1.1em; margin-bottom: 8px; }
+  .card h3 { font-size: 0.95em; color: var(--blue); margin: 12px 0 6px; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.85em; margin: 8px 0; }
+  th { text-align: left; color: var(--muted); font-weight: 500; padding: 6px 8px; border-bottom: 1px solid var(--border); }
+  td { padding: 6px 8px; border-bottom: 1px solid var(--border); }
+  .stat-row { display: flex; gap: 12px; flex-wrap: wrap; margin: 8px 0; }
+  .stat { background: var(--bg); padding: 10px 14px; border-radius: 6px; flex: 1; min-width: 100px; }
+  .stat .label { font-size: 0.75em; color: var(--muted); text-transform: uppercase; }
+  .stat .value { font-size: 1.3em; font-weight: 600; margin-top: 2px; }
+  .stat .value.green { color: var(--green); }
+  .stat .value.blue { color: var(--blue); }
+  .stat .value.orange { color: var(--orange); }
+  .stat .value.red { color: var(--red); }
+  .stat .value.teal { color: var(--teal); }
+  .empty { color: var(--muted); text-align: center; padding: 40px; }
+  .empty-state { text-align: center; padding: 32px 24px; }
+  .empty-state .empty-icon { font-size: 2em; color: var(--border); margin-bottom: 12px; font-family: monospace; line-height: 1; }
+  .empty-state .empty-heading { font-size: 1em; font-weight: 600; color: var(--text); margin-bottom: 8px; }
+  .empty-state .empty-text { font-size: 0.85em; color: var(--muted); line-height: 1.5; margin-bottom: 16px; max-width: 360px; margin-left: auto; margin-right: auto; }
+  .empty-state .empty-cta { display: inline-block; background: var(--blue); color: #fff; border: none; padding: 10px 20px; border-radius: 6px; font-size: 0.85em; cursor: pointer; font-weight: 500; }
+  .empty-state .empty-cta:hover { opacity: 0.9; }
+  .loading { color: var(--muted); text-align: center; padding: 40px; }
+  .tab-row { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+  .tab-row button { background: var(--surface); border: 1px solid var(--border); color: var(--muted); padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 0.85em; }
+  .tab-row button:hover { border-color: var(--blue); }
+  .tab-row button.active { color: var(--text); border-color: var(--blue); background: var(--blue); color: #fff; }
+
+  /* Warranty badges */
+  .warranty-badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 0.75em; font-weight: 600; text-transform: uppercase; }
+  .warranty-badge.active { background: rgba(63,185,80,0.15); color: var(--green); }
+  .warranty-badge.expiring { background: rgba(210,153,34,0.15); color: var(--orange); }
+  .warranty-badge.expired { background: rgba(248,81,73,0.15); color: var(--red); }
+  .warranty-badge.unknown { background: rgba(139,148,158,0.15); color: var(--muted); }
+
+  /* Overdue row styling */
+  tr.overdue { background: rgba(248,81,73,0.06); }
+  tr.overdue td { color: var(--red); }
+
+  /* Appliance cards */
+  .appliance-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+  .appliance-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px; position: relative; }
+  .appliance-card h3 { font-size: 0.95em; margin-bottom: 6px; color: var(--text); }
+  .appliance-card .detail { font-size: 0.8em; color: var(--muted); margin-bottom: 3px; }
+  .appliance-card .detail span { color: var(--text); }
+  .appliance-card .card-actions { display: flex; gap: 4px; margin-top: 8px; }
+  .appliance-card .card-actions button { background: var(--bg); border: 1px solid var(--border); color: var(--muted); padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 0.75em; }
+  .appliance-card .card-actions button:hover { border-color: var(--blue); color: var(--blue); }
+  .appliance-card .card-actions button.danger:hover { border-color: var(--red); color: var(--red); }
+
+  /* Login */
+  .login-screen { display: flex; align-items: center; justify-content: center; min-height: 80vh; }
+  .login-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 32px; width: 100%; max-width: 360px; }
+  .login-card h2 { text-align: center; margin-bottom: 20px; }
+  .login-card input { width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 10px 14px; border-radius: 6px; font-size: 0.9em; margin-bottom: 12px; outline: none; }
+  .login-card input:focus { border-color: var(--blue); }
+  .login-card button { width: 100%; background: var(--teal); border: none; color: #000; padding: 10px; border-radius: 6px; font-size: 0.9em; cursor: pointer; font-weight: 600; }
+  .login-card button:disabled { opacity: 0.5; }
+  .login-error { color: var(--red); font-size: 0.85em; margin-bottom: 12px; text-align: center; }
+  .user-bar { display: flex; align-items: center; gap: 8px; justify-content: flex-end; margin-bottom: 12px; font-size: 0.85em; color: var(--muted); }
+  .user-bar button { background: none; border: 1px solid var(--border); color: var(--muted); padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 0.8em; }
+  .user-bar button:hover { border-color: var(--red); color: var(--red); }
+  .user-bar button.pw-btn:hover { border-color: var(--blue); color: var(--blue); }
+
+  /* Modals */
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 2000; align-items: center; justify-content: center; }
+  .modal-overlay.open { display: flex; }
+  .modal-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 28px; width: 100%; max-width: 400px; }
+  .modal-card h2 { text-align: center; margin-bottom: 16px; font-size: 1.1em; }
+  .modal-card input, .modal-card select, .modal-card textarea { width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 10px 14px; border-radius: 6px; font-size: 0.9em; margin-bottom: 10px; outline: none; font-family: inherit; }
+  .modal-card input:focus, .modal-card textarea:focus { border-color: var(--blue); }
+  .modal-card .modal-btns { display: flex; gap: 8px; margin-top: 4px; }
+  .modal-card .modal-btns button { flex: 1; padding: 10px; border-radius: 6px; font-size: 0.9em; cursor: pointer; }
+  .modal-card .modal-btns .btn-primary { background: var(--teal); border: none; color: #000; font-weight: 600; }
+  .modal-card .modal-btns .btn-primary:disabled { opacity: 0.5; }
+  .modal-card .modal-btns .btn-cancel { background: none; border: 1px solid var(--border); color: var(--muted); }
+  .modal-msg { font-size: 0.85em; text-align: center; margin-bottom: 10px; }
+  .modal-msg.error { color: var(--red); }
+  .modal-msg.success { color: var(--green); }
+  .field-label { font-size: 0.8em; color: var(--muted); margin-bottom: 4px; }
+
+  /* Admin */
+  .admin-toolbar { display: flex; gap: 8px; margin-bottom: 16px; align-items: center; }
+  .admin-toolbar button { background: var(--teal); border: none; color: #000; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 0.85em; font-weight: 600; }
+  .admin-table { width: 100%; border-collapse: collapse; font-size: 0.85em; }
+  .admin-table th { text-align: left; color: var(--muted); font-weight: 500; padding: 8px; border-bottom: 1px solid var(--border); }
+  .admin-table td { padding: 8px; border-bottom: 1px solid var(--border); }
+  .role-badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 0.75em; font-weight: 600; text-transform: uppercase; }
+  .role-badge.admin { background: rgba(88,166,255,0.15); color: var(--blue); }
+  .role-badge.user { background: rgba(63,185,80,0.15); color: var(--green); }
+  .role-badge.readonly { background: rgba(139,148,158,0.15); color: var(--muted); }
+  .admin-actions { display: flex; gap: 4px; }
+  .admin-actions button { background: var(--bg); border: 1px solid var(--border); color: var(--muted); padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 0.8em; }
+  .admin-actions button:hover { border-color: var(--blue); color: var(--blue); }
+  .admin-actions button.danger:hover { border-color: var(--red); color: var(--red); }
+
+  /* Chat Widget */
+  .chat-fab { position: fixed; bottom: 24px; right: 24px; width: 56px; height: 56px; border-radius: 50%; background: var(--teal); border: none; color: #000; font-size: 24px; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.4); z-index: 1000; display: flex; align-items: center; justify-content: center; transition: transform 0.2s; font-weight: 700; }
+  .chat-fab:hover { transform: scale(1.1); }
+  .feedback-fab { position: fixed; bottom: 24px; left: 24px; height: 36px; padding: 0 14px; border-radius: 18px; background: var(--surface); border: 1px solid var(--border); color: var(--muted); font-size: 0.8em; font-family: inherit; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.3); z-index: 1000; display: flex; align-items: center; gap: 6px; transition: transform 0.2s; }
+  .feedback-fab:hover { transform: scale(1.05); border-color: var(--teal); color: var(--teal); }
+  .chat-panel { position: fixed; bottom: 90px; right: 24px; width: 360px; max-height: 500px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.5); z-index: 1000; display: none; flex-direction: column; overflow: hidden; }
+  .chat-panel.open { display: flex; }
+  .chat-header { padding: 12px 16px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+  .chat-header h3 { font-size: 0.95em; margin: 0; }
+  .chat-header button { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 1.2em; padding: 0 4px; }
+  .chat-messages { flex: 1; overflow-y: auto; padding: 12px 16px; min-height: 200px; max-height: 360px; display: flex; flex-direction: column; gap: 8px; }
+  .chat-msg { max-width: 85%; padding: 8px 12px; border-radius: 12px; font-size: 0.85em; line-height: 1.4; word-wrap: break-word; }
+  .chat-msg.user { align-self: flex-end; background: var(--blue); color: #fff; border-bottom-right-radius: 4px; }
+  .chat-msg.vera { align-self: flex-start; background: var(--bg); color: var(--text); border-bottom-left-radius: 4px; }
+  .chat-msg.typing { align-self: flex-start; background: var(--bg); color: var(--muted); font-style: italic; }
+  .chat-input-row { display: flex; gap: 8px; padding: 12px; border-top: 1px solid var(--border); }
+  .chat-input-row input { flex: 1; background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 8px 12px; border-radius: 8px; font-size: 0.85em; outline: none; }
+  .chat-input-row input:focus { border-color: var(--teal); }
+  .chat-input-row button { background: var(--teal); border: none; color: #000; padding: 8px 14px; border-radius: 8px; cursor: pointer; font-size: 0.85em; font-weight: 600; white-space: nowrap; }
+  .chat-input-row button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* Onboarding */
+  .welcome-step { display: none; }
+  .welcome-step.active { display: block; }
+  .welcome-steps-indicator { display: flex; gap: 8px; justify-content: center; margin: 16px 0; }
+  .welcome-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border); transition: background 0.2s; }
+  .welcome-dot.active { background: var(--teal); }
+  .welcome-dot.completed { background: var(--green); }
+  .welcome-content { padding: 8px 0; }
+  .welcome-content h2 { font-size: 1.15em; text-align: center; margin-bottom: 12px; color: var(--text); }
+  .welcome-content p { font-size: 0.9em; color: var(--muted); line-height: 1.6; text-align: center; margin-bottom: 12px; }
+  .welcome-item { background: var(--bg); border: 1px solid var(--border); padding: 12px 14px; margin-bottom: 8px; border-radius: 6px; }
+  .welcome-item-title { font-size: 0.85em; font-weight: 600; color: var(--teal); margin-bottom: 4px; }
+  .welcome-item-desc { font-size: 0.82em; color: var(--muted); line-height: 1.5; }
+  .welcome-example { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.82em; background: var(--bg); border: 1px solid var(--border); padding: 10px 14px; color: var(--text); text-align: center; margin: 12px 0; border-radius: 6px; }
+  .welcome-btn { display: block; width: 100%; padding: 12px; font-size: 0.9em; font-weight: 600; border: none; cursor: pointer; border-radius: 6px; }
+  .welcome-btn-primary { background: var(--teal); color: #000; }
+  .welcome-btn-primary:hover { opacity: 0.9; }
+
+  /* Action button (add) */
+  .add-btn { background: var(--teal); border: none; color: #000; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 0.85em; font-weight: 600; margin-bottom: 12px; }
+  .add-btn:hover { opacity: 0.9; }
+
+  /* Home Assistant */
+  .ha-status { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; font-size: 0.85em; }
+  .ha-dot { width: 10px; height: 10px; border-radius: 50%; }
+  .ha-dot.connected { background: var(--green); }
+  .ha-dot.disconnected { background: var(--red); }
+  .ha-dot.unconfigured { background: var(--muted); }
+  .ha-domain-group { margin-bottom: 16px; }
+  .ha-domain-group h3 { font-size: 0.9em; color: var(--blue); margin-bottom: 8px; text-transform: capitalize; }
+  .ha-entity-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; }
+  .ha-entity-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px; }
+  .ha-entity-card .entity-name { font-size: 0.85em; font-weight: 600; margin-bottom: 4px; }
+  .ha-entity-card .entity-state { font-size: 1.1em; font-weight: 600; }
+  .ha-entity-card .entity-state.on { color: var(--green); }
+  .ha-entity-card .entity-state.off { color: var(--muted); }
+  .ha-entity-card .entity-changed { font-size: 0.7em; color: var(--muted); margin-top: 4px; }
+  .ha-toggle { background: var(--bg); border: 1px solid var(--border); color: var(--muted); padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 0.75em; margin-top: 6px; }
+  .ha-toggle:hover { border-color: var(--teal); color: var(--teal); }
+  .ha-settings { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+  .ha-settings h3 { font-size: 0.95em; margin-bottom: 12px; }
+  .ha-settings input { width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 8px 12px; border-radius: 6px; font-size: 0.85em; margin-bottom: 8px; outline: none; }
+  .ha-settings input:focus { border-color: var(--teal); }
+  .ha-settings .ha-save-btn { background: var(--teal); border: none; color: #000; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 0.85em; font-weight: 600; }
+  .ha-settings .ha-save-btn:disabled { opacity: 0.5; }
+  .ha-settings .ha-save-msg { font-size: 0.8em; margin-top: 6px; }
+  .ha-settings .ha-save-msg.success { color: var(--green); }
+  .ha-settings .ha-save-msg.error { color: var(--red); }
+
+  @media (max-width: 480px) { .chat-panel { width: calc(100vw - 32px); right: 16px; bottom: 84px; } .appliance-grid { grid-template-columns: 1fr; } .ha-entity-grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<!-- Login Screen -->
+<div class="login-screen" id="loginScreen">
+  <div class="login-card">
+    <div style="text-align:center;margin-bottom:16px"><img src="/vera.png" alt="Vera" style="width:64px;height:auto;border-radius:12px"></div>
+    <h2>Sign in to Vera</h2>
+    <div class="login-error" id="loginError" style="display:none"></div>
+    <input type="text" id="loginUser" placeholder="Username" autocomplete="username" autofocus>
+    <input type="password" id="loginPass" placeholder="Password" autocomplete="current-password">
+    <button id="loginBtn" onclick="doLogin()">Sign In</button>
+  </div>
+</div>
+
+<!-- Dashboard -->
+<div id="dashboard" style="display:none">
+
+<div class="user-bar">
+  <span id="userDisplay"></span>
+  <button class="pw-btn" onclick="openChangePassword()">Change Password</button>
+  <button onclick="doLogout()">Sign Out</button>
+</div>
+
+<div style="margin-bottom:4px;display:flex;align-items:center;gap:12px">
+  <img src="/vera.png" alt="Vera" style="width:40px;height:auto;border-radius:8px">
+  <div>
+    <h1 style="margin:0">Vera</h1>
+    <p class="subtitle" style="margin:0">Home maintenance tracking</p>
+  </div>
+</div>
+
+<div class="tab-row" id="tabRow">
+  <button onclick="switchTab('home')">Smart Home</button>
+  <button class="active" onclick="switchTab('overview')">Overview</button>
+  <button onclick="switchTab('appliances')">Appliances</button>
+  <button onclick="switchTab('schedule')">Schedule</button>
+  <button onclick="switchTab('log')">Log</button>
+</div>
+
+<div id="home-tab" style="display:none"><div id="home-content"><div class="loading">Loading Home Assistant...</div></div></div>
+<div id="overview-tab"><div id="overview-content"><div class="loading">Loading summary...</div></div></div>
+<div id="appliances-tab" style="display:none"><div id="appliances-content"><div class="loading">Loading appliances...</div></div></div>
+<div id="schedule-tab" style="display:none"><div id="schedule-content"><div class="loading">Loading schedule...</div></div></div>
+<div id="log-tab" style="display:none"><div id="log-content"><div class="loading">Loading maintenance log...</div></div></div>
+<div id="admin-tab" style="display:none"><div id="admin-content"><div class="loading">Loading users...</div></div></div>
+
+<!-- Chat FAB & Panel -->
+<button class="chat-fab" id="chatFab" style="display:none" onclick="toggleChat()">V</button>
+<button class="feedback-fab" id="feedbackFab" style="display:none" onclick="openFeedback()">Feedback</button>
+
+<div class="chat-panel" id="chatPanel">
+  <div class="chat-header">
+    <div style="display:flex;align-items:center;gap:8px"><img src="/vera.png" alt="Vera" style="width:24px;height:auto;border-radius:6px"><h3 style="margin:0">Chat with Vera</h3></div>
+    <button onclick="toggleChat()">&times;</button>
+  </div>
+  <div class="chat-messages" id="chatMessages"></div>
+  <div class="chat-input-row">
+    <input type="text" id="chatInput" placeholder="Ask Vera anything..." onkeydown="if(event.key==='Enter')sendChat()">
+    <button id="chatSend" onclick="sendChat()">Send</button>
+  </div>
+</div>
+
+<!-- Modals -->
+
+<!-- Add/Edit Appliance Modal -->
+<div class="modal-overlay" id="applianceModal">
+  <div class="modal-card">
+    <h2 id="applianceModalTitle">Add Appliance</h2>
+    <div class="modal-msg" id="applianceMsg" style="display:none"></div>
+    <div class="field-label">Name *</div>
+    <input type="text" id="app-name" placeholder="e.g. HVAC Unit">
+    <div class="field-label">Location</div>
+    <input type="text" id="app-location" placeholder="e.g. Basement">
+    <div class="field-label">Brand</div>
+    <input type="text" id="app-brand" placeholder="e.g. Carrier">
+    <div class="field-label">Model</div>
+    <input type="text" id="app-model" placeholder="e.g. 58CVA090">
+    <div class="field-label">Serial Number</div>
+    <input type="text" id="app-serial" placeholder="">
+    <div class="field-label">Purchase Date</div>
+    <input type="date" id="app-purchase">
+    <div class="field-label">Warranty Expires</div>
+    <input type="date" id="app-warranty">
+    <div class="field-label">Notes</div>
+    <textarea id="app-notes" rows="2" placeholder=""></textarea>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeApplianceModal()">Cancel</button>
+      <button class="btn-primary" id="applianceSubmit" onclick="submitAppliance()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Schedule Modal -->
+<div class="modal-overlay" id="scheduleModal">
+  <div class="modal-card">
+    <h2>Add Scheduled Task</h2>
+    <div class="modal-msg" id="scheduleMsg" style="display:none"></div>
+    <div class="field-label">Task *</div>
+    <input type="text" id="sched-task" placeholder="e.g. Replace HVAC filter">
+    <div class="field-label">Appliance (optional)</div>
+    <select id="sched-appliance"><option value="">None</option></select>
+    <div class="field-label">Interval (days) *</div>
+    <input type="number" id="sched-interval" placeholder="e.g. 90" min="1">
+    <div class="field-label">Next Due *</div>
+    <input type="date" id="sched-due">
+    <div class="field-label">Notes</div>
+    <textarea id="sched-notes" rows="2" placeholder=""></textarea>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeScheduleModal()">Cancel</button>
+      <button class="btn-primary" onclick="submitSchedule()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Log Maintenance Modal -->
+<div class="modal-overlay" id="maintenanceModal">
+  <div class="modal-card">
+    <h2>Log Maintenance</h2>
+    <div class="modal-msg" id="maintenanceMsg" style="display:none"></div>
+    <div class="field-label">Task *</div>
+    <input type="text" id="maint-task" placeholder="e.g. Changed HVAC filter">
+    <div class="field-label">Appliance (optional)</div>
+    <select id="maint-appliance"><option value="">None</option></select>
+    <div class="field-label">Date</div>
+    <input type="date" id="maint-date">
+    <div class="field-label">Cost ($)</div>
+    <input type="number" id="maint-cost" placeholder="0.00" min="0" step="0.01">
+    <div class="field-label">Contractor</div>
+    <input type="text" id="maint-contractor" placeholder="">
+    <div class="field-label">Notes</div>
+    <textarea id="maint-notes" rows="2" placeholder=""></textarea>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeMaintenanceModal()">Cancel</button>
+      <button class="btn-primary" onclick="submitMaintenance()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Change Password Modal -->
+<div class="modal-overlay" id="pwModal">
+  <div class="modal-card">
+    <h2>Change Password</h2>
+    <div class="modal-msg" id="pwMsg" style="display:none"></div>
+    <input type="password" id="pwCurrent" placeholder="Current password" autocomplete="current-password">
+    <input type="password" id="pwNew" placeholder="New password (min 6 chars)" autocomplete="new-password">
+    <input type="password" id="pwConfirm" placeholder="Confirm new password" autocomplete="new-password">
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeChangePassword()">Cancel</button>
+      <button class="btn-primary" id="pwSubmit" onclick="submitChangePassword()">Update</button>
+    </div>
+  </div>
+</div>
+
+<!-- Feedback Modal -->
+<div class="modal-overlay" id="feedbackModal">
+  <div class="modal-card">
+    <h2>Send Feedback</h2>
+    <div class="modal-msg" id="feedbackMsg" style="display:none"></div>
+    <div class="field-label">Category</div>
+    <select id="feedback-category">
+      <option value="bug">Bug Report</option>
+      <option value="feature">Feature Request</option>
+      <option value="other">Other</option>
+    </select>
+    <div class="field-label">Your Feedback</div>
+    <textarea id="feedback-message" placeholder="Describe the bug or feature idea..." rows="4"></textarea>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeFeedback()">Cancel</button>
+      <button class="btn-primary" id="feedbackSubmit" onclick="submitFeedback()">Send</button>
+    </div>
+  </div>
+</div>
+
+<!-- Admin Modal -->
+<div class="modal-overlay" id="adminModal">
+  <div class="modal-card">
+    <h2 id="adminModalTitle">Add User</h2>
+    <div class="modal-msg" id="adminMsg" style="display:none"></div>
+    <div id="adminModalFields"></div>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeAdminModal()">Cancel</button>
+      <button class="btn-primary" id="adminSubmit">Submit</button>
+    </div>
+  </div>
+</div>
+
+<!-- Welcome / Onboarding -->
+<div class="modal-overlay" id="welcomeModal">
+  <div class="modal-card" style="max-width:420px">
+    <div class="welcome-content">
+      <div class="welcome-step active" id="welcomeStep1">
+        <h2>Welcome to Vera</h2>
+        <p>Your home maintenance assistant. Vera tracks your appliances, schedules maintenance, logs repairs, and keeps everything running smoothly.</p>
+        <button class="welcome-btn welcome-btn-primary" onclick="welcomeNext(2)">GET STARTED</button>
+      </div>
+      <div class="welcome-step" id="welcomeStep2">
+        <h2>How it works</h2>
+        <div class="welcome-item">
+          <div class="welcome-item-title">1. Register your appliances</div>
+          <div class="welcome-item-desc">Add your HVAC, water heater, washer, and other home equipment with warranty info.</div>
+        </div>
+        <div class="welcome-item">
+          <div class="welcome-item-title">2. Set maintenance schedules</div>
+          <div class="welcome-item-desc">Create recurring tasks like filter changes, gutter cleaning, and seasonal check-ups.</div>
+        </div>
+        <div class="welcome-item">
+          <div class="welcome-item-title">3. Log completed work</div>
+          <div class="welcome-item-desc">Track what was done, when, and how much it cost. Vera keeps your maintenance history organized.</div>
+        </div>
+        <button class="welcome-btn welcome-btn-primary" onclick="welcomeNext(3)">NEXT</button>
+      </div>
+      <div class="welcome-step" id="welcomeStep3">
+        <h2>Chat with Vera</h2>
+        <p>You can also talk to Vera in natural language. She understands home maintenance.</p>
+        <div class="welcome-example">"Add our Carrier HVAC unit, it's in the basement"</div>
+        <p style="font-size:0.82em">Vera will register the appliance and suggest a maintenance schedule.</p>
+        <button class="welcome-btn welcome-btn-primary" onclick="completeOnboarding()">START TRACKING</button>
+      </div>
+      <div class="welcome-steps-indicator" id="welcomeDots">
+        <div class="welcome-dot active"></div>
+        <div class="welcome-dot"></div>
+        <div class="welcome-dot"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /dashboard -->
+
+<script>
+// --- HTML escape (XSS prevention) ---
+function esc(s) { return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+
+// --- Markdown rendering (escapes first, then applies formatting) ---
+function renderSimpleMarkdown(text) {
+  let s = String(text).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  s = s.replace(/\*(.+?)\*/g, '<em>$1</em>');
+  s = s.replace(/`(.+?)`/g, '<code>$1</code>');
+  s = s.replace(/\n/g, '<br>');
+  return s;
+}
+
+// --- Auth ---
+function getToken() { return localStorage.getItem('vera_token'); }
+function setToken(t) { localStorage.setItem('vera_token', t); }
+function clearToken() { localStorage.removeItem('vera_token'); localStorage.removeItem('vera_user'); localStorage.removeItem('vera_role'); }
+
+async function apiFetch(url, opts = {}) {
+  const token = getToken();
+  if (!token) { doLogout(); throw new Error('Not authenticated'); }
+  const headers = { ...(opts.headers || {}) };
+  headers['Authorization'] = 'Bearer ' + token;
+  const res = await fetch(url, { ...opts, headers });
+  if (res.status === 401) { doLogout(); throw new Error('Session expired'); }
+  return res;
+}
+
+async function doLogin() {
+  const user = document.getElementById('loginUser').value.trim();
+  const pass = document.getElementById('loginPass').value;
+  const errEl = document.getElementById('loginError');
+  const btn = document.getElementById('loginBtn');
+  if (!user || !pass) { errEl.textContent = 'Enter username and password'; errEl.style.display = ''; return; }
+  btn.disabled = true; errEl.style.display = 'none';
+  try {
+    const res = await fetch('/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: user, password: pass }) });
+    const data = await res.json();
+    if (!res.ok) { errEl.textContent = data.error || 'Login failed'; errEl.style.display = ''; btn.disabled = false; return; }
+    setToken(data.token);
+    localStorage.setItem('vera_user', data.displayName || data.username);
+    localStorage.setItem('vera_role', data.role || 'user');
+    showDashboard();
+  } catch { errEl.textContent = 'Connection error'; errEl.style.display = ''; btn.disabled = false; }
+}
+
+function doLogout() {
+  clearToken(); sessionStorage.removeItem('chatSessionKey');
+  document.getElementById('dashboard').style.display = 'none';
+  document.getElementById('loginScreen').style.display = '';
+  document.getElementById('loginPass').value = '';
+  document.getElementById('loginError').style.display = 'none';
+  document.getElementById('loginBtn').disabled = false;
+  document.getElementById('chatPanel').classList.remove('open');
+  document.getElementById('chatFab').style.display = 'none';
+  document.getElementById('feedbackFab').style.display = 'none';
+  window._chatHistoryLoaded = false;
+  stopLiveRefresh();
+}
+
+// --- Dashboard Init ---
+async function showDashboard() {
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('dashboard').style.display = '';
+  document.getElementById('userDisplay').textContent = localStorage.getItem('vera_user') || '';
+  const role = localStorage.getItem('vera_role') || 'user';
+
+  // Show admin tab if admin
+  const tabRow = document.getElementById('tabRow');
+  if (role === 'admin' && !document.getElementById('adminTabBtn')) {
+    const btn = document.createElement('button');
+    btn.id = 'adminTabBtn';
+    btn.textContent = 'Admin';
+    btn.onclick = () => switchTab('admin');
+    tabRow.appendChild(btn);
+  }
+
+  // Show chat + feedback for non-readonly
+  if (role !== 'readonly') {
+    document.getElementById('chatFab').style.display = 'flex';
+    document.getElementById('feedbackFab').style.display = 'flex';
+  }
+
+  switchTab('overview');
+  startLiveRefresh();
+
+  // Check onboarding
+  try {
+    const res = await apiFetch('/api/onboarding-status');
+    if (res.ok) {
+      const data = await res.json();
+      if (!data.isOnboarded) document.getElementById('welcomeModal').classList.add('open');
+    }
+  } catch {}
+}
+
+// --- Tab Switching ---
+let currentTab = 'overview';
+function switchTab(tab) {
+  currentTab = tab;
+  const tabs = ['home', 'overview', 'appliances', 'schedule', 'log', 'admin'];
+  tabs.forEach(t => {
+    const el = document.getElementById(t + '-tab');
+    if (el) el.style.display = t === tab ? '' : 'none';
+  });
+  document.querySelectorAll('.tab-row button').forEach(b => {
+    const onclick = b.getAttribute('onclick') || '';
+    const match = onclick.match(/switchTab\('(\w+)'\)/);
+    b.classList.toggle('active', match ? match[1] === tab : false);
+  });
+  if (tab === 'home') loadHome();
+  else if (tab === 'overview') loadOverview();
+  else if (tab === 'appliances') loadAppliances();
+  else if (tab === 'schedule') loadSchedule();
+  else if (tab === 'log') loadLog();
+  else if (tab === 'admin') loadAdmin();
+}
+
+// --- Overview Tab ---
+async function loadOverview() {
+  const el = document.getElementById('overview-content');
+  try {
+    const res = await apiFetch('/api/summary');
+    const data = await res.json();
+    let html = '<div class="stat-row">';
+    html += `<div class="stat"><div class="label">Overdue</div><div class="value ${data.overdueCount > 0 ? 'red' : 'green'}">${esc(data.overdueCount)}</div></div>`;
+    html += `<div class="stat"><div class="label">Due This Week</div><div class="value blue">${esc(data.upcomingCount)}</div></div>`;
+    html += `<div class="stat"><div class="label">Appliances</div><div class="value teal">${esc(data.applianceCount)}</div></div>`;
+    html += `<div class="stat"><div class="label">Month Spend</div><div class="value orange">$${esc(Number(data.monthCost || 0).toFixed(2))}</div></div>`;
+    html += '</div>';
+
+    if (data.overdueItems && data.overdueItems.length) {
+      html += '<div class="card"><h2>Overdue Tasks</h2><table><tr><th>Task</th><th>Appliance</th><th>Due</th></tr>';
+      for (const item of data.overdueItems) {
+        html += `<tr class="overdue"><td>${esc(item.task)}</td><td>${esc(item.appliance_name)}</td><td>${esc(item.next_due)}</td></tr>`;
+      }
+      html += '</table></div>';
+    }
+
+    if (data.recentCompleted && data.recentCompleted.length) {
+      html += '<div class="card"><h2>Recently Completed</h2><table><tr><th>Date</th><th>Task</th><th>Appliance</th><th>Cost</th></tr>';
+      for (const item of data.recentCompleted) {
+        html += `<tr><td>${esc(item.date)}</td><td>${esc(item.task)}</td><td>${esc(item.appliance_name)}</td><td>$${esc(Number(item.cost || 0).toFixed(2))}</td></tr>`;
+      }
+      html += '</table></div>';
+    }
+
+    if (!data.overdueItems?.length && !data.recentCompleted?.length && data.applianceCount === 0) {
+      html += '<div class="empty-state"><div class="empty-icon">[~]</div><div class="empty-heading">No data yet</div><div class="empty-text">Start by adding your first appliance, or chat with Vera to get set up.</div><button class="empty-cta" onclick="switchTab(\'appliances\')">Add Appliance</button></div>';
+    }
+    el.innerHTML = html;
+  } catch { el.innerHTML = '<div class="empty">Failed to load summary</div>'; }
+}
+
+// --- Appliances Tab ---
+async function loadAppliances() {
+  const el = document.getElementById('appliances-content');
+  try {
+    const res = await apiFetch('/api/appliances');
+    const data = await res.json();
+    const apps = data.appliances || [];
+    let html = '<button class="add-btn" onclick="openApplianceModal()">+ Add Appliance</button>';
+    if (!apps.length) {
+      html += '<div class="empty-state"><div class="empty-icon">[~]</div><div class="empty-heading">No appliances yet</div><div class="empty-text">Register your home appliances to track warranties and maintenance schedules.</div></div>';
+    } else {
+      html += '<div class="appliance-grid">';
+      for (const a of apps) {
+        html += `<div class="appliance-card">
+          <h3>${esc(a.name)}</h3>
+          ${a.location ? `<div class="detail">Location: <span>${esc(a.location)}</span></div>` : ''}
+          ${a.brand ? `<div class="detail">Brand: <span>${esc(a.brand)}</span></div>` : ''}
+          ${a.model ? `<div class="detail">Model: <span>${esc(a.model)}</span></div>` : ''}
+          ${a.warranty_expires ? `<div class="detail">Warranty: <span class="warranty-badge ${esc(a.warrantyStatus)}">${esc(a.warrantyStatus)}</span> ${esc(a.warranty_expires)}</div>` : '<div class="detail">Warranty: <span class="warranty-badge unknown">unknown</span></div>'}
+          <div class="card-actions">
+            <button onclick="editAppliance(${esc(a.id)})">Edit</button>
+            <button class="danger" onclick="deleteAppliance(${esc(a.id)},'${esc(a.name)}')">Delete</button>
+          </div>
+        </div>`;
+      }
+      html += '</div>';
+    }
+    el.innerHTML = html;
+  } catch { el.innerHTML = '<div class="empty">Failed to load appliances</div>'; }
+}
+
+// --- Schedule Tab ---
+async function loadSchedule() {
+  const el = document.getElementById('schedule-content');
+  try {
+    const res = await apiFetch('/api/schedule');
+    const data = await res.json();
+    const items = data.schedule || [];
+    let html = '<button class="add-btn" onclick="openScheduleModal()">+ Add Task</button>';
+    if (!items.length) {
+      html += '<div class="empty-state"><div class="empty-icon">[~]</div><div class="empty-heading">No scheduled tasks</div><div class="empty-text">Add recurring maintenance tasks to stay on top of your home care.</div></div>';
+    } else {
+      html += '<table><tr><th>Task</th><th>Appliance</th><th>Due</th><th>Interval</th><th>Status</th><th></th></tr>';
+      for (const s of items) {
+        const cls = s.is_overdue ? ' class="overdue"' : '';
+        const status = s.is_overdue ? '<span style="color:var(--red)">Overdue</span>' : '<span style="color:var(--green)">On Track</span>';
+        html += `<tr${cls}><td>${esc(s.task)}</td><td>${esc(s.appliance_name)}</td><td>${esc(s.next_due)}</td><td>${esc(s.interval_days)}d</td><td>${status}</td><td><button style="background:none;border:1px solid var(--border);color:var(--muted);padding:3px 8px;border-radius:4px;cursor:pointer;font-size:0.75em" onclick="deleteSchedule(${esc(s.id)})">Del</button></td></tr>`;
+      }
+      html += '</table>';
+    }
+    el.innerHTML = html;
+  } catch { el.innerHTML = '<div class="empty">Failed to load schedule</div>'; }
+}
+
+// --- Log Tab ---
+async function loadLog() {
+  const el = document.getElementById('log-content');
+  try {
+    const res = await apiFetch('/api/maintenance?range=365');
+    const data = await res.json();
+    const entries = data.entries || [];
+    let html = '<button class="add-btn" onclick="openMaintenanceModal()">+ Log Maintenance</button>';
+    if (!entries.length) {
+      html += '<div class="empty-state"><div class="empty-icon">[~]</div><div class="empty-heading">No maintenance logged</div><div class="empty-text">Log completed maintenance work to keep a history of repairs and costs.</div></div>';
+    } else {
+      html += '<table><tr><th>Date</th><th>Task</th><th>Appliance</th><th>Cost</th><th>Contractor</th></tr>';
+      for (const e of entries) {
+        html += `<tr><td>${esc(e.date)}</td><td>${esc(e.task)}</td><td>${esc(e.appliance_name)}</td><td>$${esc(Number(e.cost || 0).toFixed(2))}</td><td>${esc(e.contractor)}</td></tr>`;
+      }
+      html += '</table>';
+    }
+    el.innerHTML = html;
+  } catch { el.innerHTML = '<div class="empty">Failed to load maintenance log</div>'; }
+}
+
+// --- Home Tab (Home Assistant) ---
+async function loadHome() {
+  const el = document.getElementById('home-content');
+
+  // Always show settings section
+  let html = '';
+
+  // Load current preferences for settings form
+  let prefs = {};
+  try {
+    const prefRes = await apiFetch('/api/preferences');
+    prefs = await prefRes.json();
+  } catch {}
+
+  // Settings section
+  html += `<div class="ha-settings">
+    <h3>Home Assistant Connection</h3>
+    <div class="field-label">Home Assistant URL</div>
+    <input type="url" id="ha-url" placeholder="http://192.168.1.100:8123" value="${esc(prefs.ha_url || '')}">
+    <div class="field-label">Long-Lived Access Token</div>
+    <input type="password" id="ha-token" placeholder="eyJ0eXAiOiJKV1QiLCJ..." value="${esc(prefs.ha_token || '')}">
+    <button class="ha-save-btn" onclick="saveHaSettings()">Save & Test Connection</button>
+    <div class="ha-save-msg" id="haSaveMsg" style="display:none"></div>
+  </div>`;
+
+  // Check status
+  try {
+    const statusRes = await apiFetch('/api/ha/status');
+    const status = await statusRes.json();
+
+    const dotClass = status.connected ? 'connected' : (status.configured ? 'disconnected' : 'unconfigured');
+    const dotLabel = status.connected ? 'Connected' : (status.configured ? 'Disconnected' : 'Not configured');
+    html += `<div class="ha-status"><div class="ha-dot ${dotClass}"></div><span>${esc(dotLabel)}: ${esc(status.message)}</span></div>`;
+
+    if (status.connected) {
+      // Load entities
+      try {
+        const entRes = await apiFetch('/api/ha/entities');
+        const entData = await entRes.json();
+        const entities = entData.entities || [];
+
+        if (!entities.length) {
+          html += '<div class="empty" style="padding:20px">No entities found in Home Assistant.</div>';
+        } else {
+          // Group by domain
+          const groups = {};
+          for (const e of entities) {
+            if (!groups[e.domain]) groups[e.domain] = [];
+            groups[e.domain].push(e);
+          }
+          // Show priority domains first
+          const domainOrder = ['climate', 'sensor', 'switch', 'light', 'binary_sensor', 'lock', 'cover'];
+          const sortedDomains = Object.keys(groups).sort((a, b) => {
+            const ai = domainOrder.indexOf(a);
+            const bi = domainOrder.indexOf(b);
+            if (ai >= 0 && bi >= 0) return ai - bi;
+            if (ai >= 0) return -1;
+            if (bi >= 0) return 1;
+            return a.localeCompare(b);
+          });
+
+          for (const domain of sortedDomains) {
+            const ents = groups[domain];
+            html += `<div class="ha-domain-group"><h3>${esc(domain)} (${ents.length})</h3><div class="ha-entity-grid">`;
+            for (const e of ents) {
+              const stateClass = (e.state === 'on' || e.state === 'home') ? 'on' : (e.state === 'off' || e.state === 'not_home') ? 'off' : '';
+              const changed = e.last_changed ? new Date(e.last_changed).toLocaleString() : '';
+              html += `<div class="ha-entity-card">
+                <div class="entity-name">${esc(e.name)}</div>
+                <div class="entity-state ${stateClass}">${esc(e.state)}</div>
+                ${changed ? `<div class="entity-changed">${esc(changed)}</div>` : ''}
+                ${(domain === 'switch' || domain === 'light') ? `<button class="ha-toggle" onclick="toggleHaEntity('${esc(e.entity_id)}','${esc(e.state)}','${esc(domain)}')">${e.state === 'on' ? 'Turn Off' : 'Turn On'}</button>` : ''}
+              </div>`;
+            }
+            html += '</div></div>';
+          }
+        }
+      } catch {
+        html += '<div class="empty" style="padding:20px">Failed to load entities.</div>';
+      }
+    } else if (!status.configured) {
+      html += `<div class="empty-state">
+        <div class="empty-icon">[~]</div>
+        <div class="empty-heading">Connect Home Assistant</div>
+        <div class="empty-text">Enter your Home Assistant URL and a long-lived access token above to see your smart home devices here. You can create a token in your HA profile settings.</div>
+      </div>`;
+    } else {
+      html += `<div class="empty-state">
+        <div class="empty-icon">[!]</div>
+        <div class="empty-heading">Connection Failed</div>
+        <div class="empty-text">Could not reach Home Assistant. Check that the URL is correct and HA is running.</div>
+      </div>`;
+    }
+  } catch {
+    html += '<div class="empty" style="padding:20px">Failed to check Home Assistant status.</div>';
+  }
+
+  el.innerHTML = html;
+}
+
+async function saveHaSettings() {
+  const urlVal = document.getElementById('ha-url').value.trim();
+  const tokenVal = document.getElementById('ha-token').value.trim();
+  const msg = document.getElementById('haSaveMsg');
+  msg.style.display = 'none';
+
+  try {
+    // Save URL
+    if (urlVal) {
+      await apiFetch('/api/preferences', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: 'ha_url', value: urlVal })
+      });
+    }
+    // Save token
+    if (tokenVal) {
+      await apiFetch('/api/preferences', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: 'ha_token', value: tokenVal })
+      });
+    }
+
+    // Test connection
+    const statusRes = await apiFetch('/api/ha/status');
+    const status = await statusRes.json();
+
+    if (status.connected) {
+      msg.className = 'ha-save-msg success';
+      msg.textContent = 'Connected to Home Assistant!';
+    } else if (status.configured) {
+      msg.className = 'ha-save-msg error';
+      msg.textContent = 'Saved, but could not connect: ' + (status.message || 'unknown error');
+    } else {
+      msg.className = 'ha-save-msg error';
+      msg.textContent = 'Please enter both URL and token.';
+    }
+    msg.style.display = '';
+
+    // Reload the home tab to show updated state
+    loadHome();
+  } catch {
+    msg.className = 'ha-save-msg error';
+    msg.textContent = 'Failed to save settings.';
+    msg.style.display = '';
+  }
+}
+
+async function toggleHaEntity(entityId, currentState, domain) {
+  const service = currentState === 'on' ? 'turn_off' : 'turn_on';
+  try {
+    await apiFetch('/api/ha/call-service', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ domain, service, entity_id: entityId })
+    });
+    // Reload after toggle
+    setTimeout(() => loadHome(), 1000);
+  } catch {}
+}
+
+// --- Appliance Modal ---
+let editingApplianceId = null;
+function openApplianceModal(appData) {
+  editingApplianceId = null;
+  document.getElementById('applianceModalTitle').textContent = 'Add Appliance';
+  document.getElementById('applianceMsg').style.display = 'none';
+  document.getElementById('app-name').value = '';
+  document.getElementById('app-location').value = '';
+  document.getElementById('app-brand').value = '';
+  document.getElementById('app-model').value = '';
+  document.getElementById('app-serial').value = '';
+  document.getElementById('app-purchase').value = '';
+  document.getElementById('app-warranty').value = '';
+  document.getElementById('app-notes').value = '';
+  if (appData) {
+    editingApplianceId = appData.id;
+    document.getElementById('applianceModalTitle').textContent = 'Edit Appliance';
+    document.getElementById('app-name').value = appData.name || '';
+    document.getElementById('app-location').value = appData.location || '';
+    document.getElementById('app-brand').value = appData.brand || '';
+    document.getElementById('app-model').value = appData.model || '';
+    document.getElementById('app-serial').value = appData.serial_number || '';
+    document.getElementById('app-purchase').value = appData.purchase_date || '';
+    document.getElementById('app-warranty').value = appData.warranty_expires || '';
+    document.getElementById('app-notes').value = appData.notes || '';
+  }
+  document.getElementById('applianceModal').classList.add('open');
+  document.getElementById('app-name').focus();
+}
+function closeApplianceModal() { document.getElementById('applianceModal').classList.remove('open'); }
+
+async function editAppliance(id) {
+  try {
+    const res = await apiFetch('/api/appliances');
+    const data = await res.json();
+    const app = (data.appliances || []).find(a => a.id === id);
+    if (app) openApplianceModal(app);
+  } catch {}
+}
+
+async function submitAppliance() {
+  const msg = document.getElementById('applianceMsg');
+  msg.style.display = 'none';
+  const name = document.getElementById('app-name').value.trim();
+  if (!name) { msg.className = 'modal-msg error'; msg.textContent = 'Name is required'; msg.style.display = ''; return; }
+  try {
+    const body = {
+      name, location: document.getElementById('app-location').value.trim(),
+      brand: document.getElementById('app-brand').value.trim(), model: document.getElementById('app-model').value.trim(),
+      serial_number: document.getElementById('app-serial').value.trim(), purchase_date: document.getElementById('app-purchase').value,
+      warranty_expires: document.getElementById('app-warranty').value, notes: document.getElementById('app-notes').value.trim()
+    };
+    const res = await apiFetch('/api/appliances', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    if (!res.ok) { const d = await res.json(); msg.className = 'modal-msg error'; msg.textContent = d.error || 'Failed'; msg.style.display = ''; return; }
+    closeApplianceModal();
+    loadAppliances();
+    if (currentTab === 'overview') loadOverview();
+  } catch { msg.className = 'modal-msg error'; msg.textContent = 'Connection error'; msg.style.display = ''; }
+}
+
+async function deleteAppliance(id, name) {
+  if (!confirm('Delete appliance "' + name + '"?')) return;
+  try {
+    await apiFetch('/api/appliances/' + id, { method: 'DELETE' });
+    loadAppliances();
+    if (currentTab === 'overview') loadOverview();
+  } catch {}
+}
+
+// --- Schedule Modal ---
+async function openScheduleModal() {
+  document.getElementById('scheduleMsg').style.display = 'none';
+  document.getElementById('sched-task').value = '';
+  document.getElementById('sched-interval').value = '';
+  document.getElementById('sched-due').value = new Date().toISOString().slice(0, 10);
+  document.getElementById('sched-notes').value = '';
+  // Populate appliance dropdown
+  const sel = document.getElementById('sched-appliance');
+  sel.innerHTML = '<option value="">None</option>';
+  try {
+    const res = await apiFetch('/api/appliances');
+    const data = await res.json();
+    for (const a of (data.appliances || [])) {
+      sel.innerHTML += `<option value="${esc(a.id)}">${esc(a.name)}</option>`;
+    }
+  } catch {}
+  document.getElementById('scheduleModal').classList.add('open');
+  document.getElementById('sched-task').focus();
+}
+function closeScheduleModal() { document.getElementById('scheduleModal').classList.remove('open'); }
+
+async function submitSchedule() {
+  const msg = document.getElementById('scheduleMsg');
+  msg.style.display = 'none';
+  const task = document.getElementById('sched-task').value.trim();
+  const interval_days = parseInt(document.getElementById('sched-interval').value);
+  const next_due = document.getElementById('sched-due').value;
+  if (!task) { msg.className = 'modal-msg error'; msg.textContent = 'Task is required'; msg.style.display = ''; return; }
+  if (!interval_days || interval_days <= 0) { msg.className = 'modal-msg error'; msg.textContent = 'Interval must be a positive number'; msg.style.display = ''; return; }
+  if (!next_due) { msg.className = 'modal-msg error'; msg.textContent = 'Due date is required'; msg.style.display = ''; return; }
+  try {
+    const appId = document.getElementById('sched-appliance').value;
+    const body = { task, interval_days, next_due, notes: document.getElementById('sched-notes').value.trim() };
+    if (appId) body.appliance_id = parseInt(appId);
+    const res = await apiFetch('/api/schedule', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    if (!res.ok) { const d = await res.json(); msg.className = 'modal-msg error'; msg.textContent = d.error || 'Failed'; msg.style.display = ''; return; }
+    closeScheduleModal();
+    loadSchedule();
+    if (currentTab === 'overview') loadOverview();
+  } catch { msg.className = 'modal-msg error'; msg.textContent = 'Connection error'; msg.style.display = ''; }
+}
+
+async function deleteSchedule(id) {
+  if (!confirm('Delete this scheduled task?')) return;
+  try {
+    await apiFetch('/api/schedule/' + id, { method: 'DELETE' });
+    loadSchedule();
+    if (currentTab === 'overview') loadOverview();
+  } catch {}
+}
+
+// --- Maintenance Modal ---
+async function openMaintenanceModal() {
+  document.getElementById('maintenanceMsg').style.display = 'none';
+  document.getElementById('maint-task').value = '';
+  document.getElementById('maint-date').value = new Date().toISOString().slice(0, 10);
+  document.getElementById('maint-cost').value = '';
+  document.getElementById('maint-contractor').value = '';
+  document.getElementById('maint-notes').value = '';
+  const sel = document.getElementById('maint-appliance');
+  sel.innerHTML = '<option value="">None</option>';
+  try {
+    const res = await apiFetch('/api/appliances');
+    const data = await res.json();
+    for (const a of (data.appliances || [])) {
+      sel.innerHTML += `<option value="${esc(a.id)}">${esc(a.name)}</option>`;
+    }
+  } catch {}
+  document.getElementById('maintenanceModal').classList.add('open');
+  document.getElementById('maint-task').focus();
+}
+function closeMaintenanceModal() { document.getElementById('maintenanceModal').classList.remove('open'); }
+
+async function submitMaintenance() {
+  const msg = document.getElementById('maintenanceMsg');
+  msg.style.display = 'none';
+  const task = document.getElementById('maint-task').value.trim();
+  if (!task) { msg.className = 'modal-msg error'; msg.textContent = 'Task is required'; msg.style.display = ''; return; }
+  try {
+    const appId = document.getElementById('maint-appliance').value;
+    const body = {
+      task, date: document.getElementById('maint-date').value,
+      cost: parseFloat(document.getElementById('maint-cost').value) || 0,
+      contractor: document.getElementById('maint-contractor').value.trim(),
+      notes: document.getElementById('maint-notes').value.trim()
+    };
+    if (appId) body.appliance_id = parseInt(appId);
+    const res = await apiFetch('/api/maintenance', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    if (!res.ok) { const d = await res.json(); msg.className = 'modal-msg error'; msg.textContent = d.error || 'Failed'; msg.style.display = ''; return; }
+    closeMaintenanceModal();
+    loadLog();
+    if (currentTab === 'overview') loadOverview();
+  } catch { msg.className = 'modal-msg error'; msg.textContent = 'Connection error'; msg.style.display = ''; }
+}
+
+// --- Change Password ---
+function openChangePassword() {
+  document.getElementById('pwModal').classList.add('open');
+  document.getElementById('pwCurrent').value = '';
+  document.getElementById('pwNew').value = '';
+  document.getElementById('pwConfirm').value = '';
+  document.getElementById('pwMsg').style.display = 'none';
+  document.getElementById('pwSubmit').disabled = false;
+  document.getElementById('pwCurrent').focus();
+}
+function closeChangePassword() { document.getElementById('pwModal').classList.remove('open'); }
+
+async function submitChangePassword() {
+  const current = document.getElementById('pwCurrent').value;
+  const newPw = document.getElementById('pwNew').value;
+  const confirm = document.getElementById('pwConfirm').value;
+  const msg = document.getElementById('pwMsg');
+  const btn = document.getElementById('pwSubmit');
+  msg.style.display = 'none';
+  if (!current || !newPw || !confirm) { msg.className = 'modal-msg error'; msg.textContent = 'All fields are required'; msg.style.display = ''; return; }
+  if (newPw.length < 6) { msg.className = 'modal-msg error'; msg.textContent = 'New password must be at least 6 characters'; msg.style.display = ''; return; }
+  if (newPw !== confirm) { msg.className = 'modal-msg error'; msg.textContent = 'New passwords do not match'; msg.style.display = ''; return; }
+  btn.disabled = true;
+  try {
+    const res = await apiFetch('/api/change-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ currentPassword: current, newPassword: newPw }) });
+    const data = await res.json();
+    if (!res.ok) { msg.className = 'modal-msg error'; msg.textContent = data.error || 'Failed'; msg.style.display = ''; btn.disabled = false; return; }
+    msg.className = 'modal-msg success'; msg.textContent = 'Password updated'; msg.style.display = '';
+    setTimeout(() => closeChangePassword(), 1500);
+  } catch { msg.className = 'modal-msg error'; msg.textContent = 'Connection error'; msg.style.display = ''; btn.disabled = false; }
+}
+
+// --- Feedback ---
+function openFeedback() {
+  document.getElementById('feedback-category').value = 'bug';
+  document.getElementById('feedback-message').value = '';
+  document.getElementById('feedbackMsg').style.display = 'none';
+  document.getElementById('feedbackSubmit').disabled = false;
+  document.getElementById('feedbackModal').classList.add('open');
+}
+function closeFeedback() { document.getElementById('feedbackModal').classList.remove('open'); }
+
+async function submitFeedback() {
+  const category = document.getElementById('feedback-category').value;
+  const message = document.getElementById('feedback-message').value.trim();
+  const msg = document.getElementById('feedbackMsg');
+  const btn = document.getElementById('feedbackSubmit');
+  if (!message) { msg.className = 'modal-msg error'; msg.textContent = 'Please enter your feedback'; msg.style.display = ''; return; }
+  btn.disabled = true;
+  try {
+    const r = await apiFetch('/api/feedback', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ category, message, page: currentTab }) });
+    if (!r.ok) { const d = await r.json(); msg.className = 'modal-msg error'; msg.textContent = d.error || 'Failed'; msg.style.display = ''; btn.disabled = false; return; }
+    msg.className = 'modal-msg success'; msg.textContent = 'Thank you! Feedback received.'; msg.style.display = '';
+    setTimeout(() => closeFeedback(), 1500);
+  } catch { msg.className = 'modal-msg error'; msg.textContent = 'Connection error'; msg.style.display = ''; btn.disabled = false; }
+}
+
+// --- Admin ---
+async function loadAdmin() {
+  const el = document.getElementById('admin-content');
+  try {
+    const res = await apiFetch('/api/admin/users');
+    const data = await res.json();
+    const users = data.users || [];
+    let html = '<div class="admin-toolbar"><button onclick="openAdminAdd()">+ Add User</button></div>';
+    html += '<table class="admin-table"><tr><th>Username</th><th>Display Name</th><th>Role</th><th>Actions</th></tr>';
+    for (const u of users) {
+      html += `<tr><td>${esc(u.username)}</td><td>${esc(u.displayName)}</td><td><span class="role-badge ${esc(u.role)}">${esc(u.role)}</span></td>`;
+      html += `<td class="admin-actions"><button onclick="openAdminEdit('${esc(u.username)}','${esc(u.displayName)}','${esc(u.role)}')">Edit</button><button onclick="openAdminResetPw('${esc(u.username)}')">Reset PW</button><button class="danger" onclick="adminDeleteUser('${esc(u.username)}')">Delete</button></td></tr>`;
+    }
+    html += '</table>';
+    el.innerHTML = html;
+  } catch { el.innerHTML = '<div class="empty">Failed to load users</div>'; }
+}
+
+function closeAdminModal() { document.getElementById('adminModal').classList.remove('open'); }
+
+function openAdminAdd() {
+  document.getElementById('adminModalTitle').textContent = 'Add User';
+  document.getElementById('adminMsg').style.display = 'none';
+  document.getElementById('adminModalFields').innerHTML = `
+    <input type="text" id="admin-username" placeholder="Username"><input type="password" id="admin-password" placeholder="Password (min 6 chars)"><input type="text" id="admin-display" placeholder="Display Name">
+    <select id="admin-role"><option value="user">User</option><option value="admin">Admin</option><option value="readonly">Readonly</option></select>`;
+  document.getElementById('adminSubmit').onclick = adminCreateUser;
+  document.getElementById('adminModal').classList.add('open');
+}
+
+async function adminCreateUser() {
+  const msg = document.getElementById('adminMsg');
+  msg.style.display = 'none';
+  const username = document.getElementById('admin-username').value.trim();
+  const password = document.getElementById('admin-password').value;
+  const displayName = document.getElementById('admin-display').value.trim() || username;
+  const role = document.getElementById('admin-role').value;
+  if (!username || !password) { msg.className = 'modal-msg error'; msg.textContent = 'Username and password required'; msg.style.display = ''; return; }
+  try {
+    const res = await apiFetch('/api/admin/users', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password, displayName, role }) });
+    const data = await res.json();
+    if (!res.ok) { msg.className = 'modal-msg error'; msg.textContent = data.error || 'Failed'; msg.style.display = ''; return; }
+    closeAdminModal(); loadAdmin();
+  } catch { msg.className = 'modal-msg error'; msg.textContent = 'Connection error'; msg.style.display = ''; }
+}
+
+function openAdminEdit(username, displayName, role) {
+  document.getElementById('adminModalTitle').textContent = 'Edit User: ' + username;
+  document.getElementById('adminMsg').style.display = 'none';
+  document.getElementById('adminModalFields').innerHTML = `
+    <input type="text" id="admin-display" placeholder="Display Name" value="${esc(displayName)}">
+    <select id="admin-role"><option value="user" ${role==='user'?'selected':''}>User</option><option value="admin" ${role==='admin'?'selected':''}>Admin</option><option value="readonly" ${role==='readonly'?'selected':''}>Readonly</option></select>`;
+  document.getElementById('adminSubmit').onclick = async () => {
+    const msg = document.getElementById('adminMsg'); msg.style.display = 'none';
+    try {
+      const res = await apiFetch('/api/admin/users/' + username, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ displayName: document.getElementById('admin-display').value.trim(), role: document.getElementById('admin-role').value }) });
+      if (!res.ok) { const d = await res.json(); msg.className = 'modal-msg error'; msg.textContent = d.error || 'Failed'; msg.style.display = ''; return; }
+      closeAdminModal(); loadAdmin();
+    } catch { msg.className = 'modal-msg error'; msg.textContent = 'Connection error'; msg.style.display = ''; }
+  };
+  document.getElementById('adminModal').classList.add('open');
+}
+
+function openAdminResetPw(username) {
+  document.getElementById('adminModalTitle').textContent = 'Reset Password: ' + username;
+  document.getElementById('adminMsg').style.display = 'none';
+  document.getElementById('adminModalFields').innerHTML = '<input type="password" id="admin-newpw" placeholder="New Password (min 6 chars)">';
+  document.getElementById('adminSubmit').onclick = async () => {
+    const msg = document.getElementById('adminMsg'); msg.style.display = 'none';
+    const pw = document.getElementById('admin-newpw').value;
+    if (!pw || pw.length < 6) { msg.className = 'modal-msg error'; msg.textContent = 'Password must be at least 6 characters'; msg.style.display = ''; return; }
+    try {
+      const res = await apiFetch('/api/admin/users/' + username + '/reset-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ newPassword: pw }) });
+      if (!res.ok) { const d = await res.json(); msg.className = 'modal-msg error'; msg.textContent = d.error || 'Failed'; msg.style.display = ''; return; }
+      msg.className = 'modal-msg success'; msg.textContent = 'Password reset'; msg.style.display = '';
+      setTimeout(() => closeAdminModal(), 1000);
+    } catch { msg.className = 'modal-msg error'; msg.textContent = 'Connection error'; msg.style.display = ''; }
+  };
+  document.getElementById('adminModal').classList.add('open');
+}
+
+async function adminDeleteUser(username) {
+  if (!confirm('Delete user "' + username + '"?')) return;
+  try {
+    const res = await apiFetch('/api/admin/users/' + username, { method: 'DELETE' });
+    if (!res.ok) { const d = await res.json(); alert(d.error || 'Failed to delete user'); return; }
+    loadAdmin();
+  } catch {}
+}
+
+// --- Chat ---
+function toggleChat() {
+  const panel = document.getElementById('chatPanel');
+  panel.classList.toggle('open');
+  if (panel.classList.contains('open') && !window._chatHistoryLoaded) {
+    loadChatHistory();
+    window._chatHistoryLoaded = true;
+  }
+}
+
+async function loadChatHistory() {
+  const el = document.getElementById('chatMessages');
+  try {
+    const res = await apiFetch('/api/chat/history?limit=50');
+    const msgs = await res.json();
+    el.innerHTML = '';
+    for (const m of msgs) {
+      const div = document.createElement('div');
+      div.className = 'chat-msg ' + (m.role === 'user' ? 'user' : 'vera');
+      div.innerHTML = m.role === 'user' ? esc(m.content) : renderSimpleMarkdown(m.content);
+      el.appendChild(div);
+    }
+    el.scrollTop = el.scrollHeight;
+  } catch {}
+}
+
+async function sendChat() {
+  const input = document.getElementById('chatInput');
+  const message = input.value.trim();
+  if (!message) return;
+  input.value = '';
+  const btn = document.getElementById('chatSend');
+  btn.disabled = true;
+
+  const el = document.getElementById('chatMessages');
+  const userMsg = document.createElement('div');
+  userMsg.className = 'chat-msg user';
+  userMsg.textContent = message;
+  el.appendChild(userMsg);
+
+  const typing = document.createElement('div');
+  typing.className = 'chat-msg typing';
+  typing.textContent = 'Vera is thinking...';
+  el.appendChild(typing);
+  el.scrollTop = el.scrollHeight;
+
+  let sessionKey = sessionStorage.getItem('chatSessionKey') || '';
+
+  try {
+    const res = await apiFetch('/api/chat', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message, sessionKey })
+    });
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let replyText = '';
+    typing.className = 'chat-msg vera';
+    typing.innerHTML = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+      for (const line of lines) {
+        if (line.startsWith('event: ')) { /* consume */ }
+        else if (line.startsWith('data: ')) {
+          try {
+            const d = JSON.parse(line.slice(6));
+            if (d.delta) { replyText += d.delta; typing.innerHTML = renderSimpleMarkdown(replyText); el.scrollTop = el.scrollHeight; }
+            if (d.reply) { replyText = d.reply; typing.innerHTML = renderSimpleMarkdown(replyText); }
+            if (d.sessionKey) sessionStorage.setItem('chatSessionKey', d.sessionKey);
+            if (d.error) { typing.innerHTML = '<em style="color:var(--red)">' + esc(d.error) + '</em>'; }
+          } catch {}
+        }
+      }
+    }
+    if (!replyText) typing.innerHTML = '<em style="color:var(--muted)">No response</em>';
+  } catch {
+    typing.innerHTML = '<em style="color:var(--red)">Connection error</em>';
+  }
+  btn.disabled = false;
+  el.scrollTop = el.scrollHeight;
+}
+
+// --- SSE Live Refresh ---
+let sseSource = null;
+function startLiveRefresh() {
+  stopLiveRefresh();
+  const token = getToken();
+  if (!token) return;
+  try {
+    sseSource = new EventSource('/api/events?token=' + encodeURIComponent(token));
+    sseSource.addEventListener('data-updated', () => {
+      if (currentTab === 'overview') loadOverview();
+      else if (currentTab === 'appliances') loadAppliances();
+      else if (currentTab === 'schedule') loadSchedule();
+      else if (currentTab === 'log') loadLog();
+    });
+    sseSource.onerror = () => { stopLiveRefresh(); setTimeout(startLiveRefresh, 5000); };
+  } catch {}
+}
+function stopLiveRefresh() {
+  if (sseSource) { sseSource.close(); sseSource = null; }
+}
+
+// --- Onboarding ---
+function welcomeNext(step) {
+  document.querySelectorAll('.welcome-step').forEach(s => s.classList.remove('active'));
+  const el = document.getElementById('welcomeStep' + step);
+  if (el) el.classList.add('active');
+  const dots = document.querySelectorAll('#welcomeDots .welcome-dot');
+  dots.forEach((d, i) => { d.className = 'welcome-dot' + (i < step - 1 ? ' completed' : i === step - 1 ? ' active' : ''); });
+}
+
+async function completeOnboarding() {
+  try { await apiFetch('/api/onboarding-complete', { method: 'POST', headers: { 'Content-Type': 'application/json' } }); } catch {}
+  document.getElementById('welcomeModal').classList.remove('open');
+}
+
+// --- Enter on login ---
+document.getElementById('loginPass').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+
+// --- Auto-login if token exists ---
+if (getToken()) showDashboard();
+</script>
+</body>
+</html>

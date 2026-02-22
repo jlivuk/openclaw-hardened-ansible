@@ -1,0 +1,62 @@
+id: vera
+name: Vera
+enabled: true
+
+# Dashboard container
+dashboard:
+  port: 8081
+  container_name: vera-dashboard
+  dockerfile: Dockerfile.vera
+  extra_env:
+    VERA_DATA_DIR: /home/node/vera-dashboard
+    VERA_MEMORY_BASE: /home/node/.openclaw/workspace-vera/memory
+
+# Paths (relative to docker_dir on the Pi)
+workspace: workspace-vera
+scripts_dir: vera-scripts
+dashboard_dir: vera-dashboard-files
+
+# OpenClaw agent entry (injected into openclaw.json agents.list)
+openclaw_agent:
+  workspace: /opt/openclaw/workspace-vera
+  agentDir: /opt/openclaw/agents/vera
+  heartbeat:
+    every: 5m
+
+# Channel bindings (injected into openclaw.json bindings)
+bindings:
+  - channel: telegram
+    accountId: vera
+
+# Execution policy (injected into exec-approvals.json agents)
+exec_approvals:
+  security: allowlist
+  ask: "off"
+  allowlist:
+    - pattern: /usr/bin/sqlite3
+    - pattern: /opt/openclaw/vera-scripts/*.sh
+    - pattern: /usr/bin/ls
+    - pattern: /bin/ls
+    - pattern: /usr/bin/cat
+    - pattern: /bin/cat
+    - pattern: /usr/bin/date
+    - pattern: /bin/date
+    - pattern: /usr/bin/wc
+
+# Extra domains for Squid allowlist
+allowed_domains: []
+
+# Extra volume mounts on the openclaw gateway container
+openclaw_volumes:
+  - "./workspace-vera:/opt/openclaw/workspace-vera"
+  - "./vera-scripts:/opt/openclaw/vera-scripts"
+  - "vera-data:/home/node/vera-dashboard"
+
+# Named Docker volumes
+named_volumes:
+  - vera-data
+
+# Extra allowed origins for openclaw.json gateway
+gateway_origins:
+  - "http://openclaw:18789"
+  - "ws://openclaw:18789"

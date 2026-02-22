@@ -43,6 +43,9 @@ CREATE TABLE IF NOT EXISTS exercise (
   duration TEXT DEFAULT '',
   calories_burned INTEGER DEFAULT 0,
   notes TEXT DEFAULT '',
+  source TEXT DEFAULT 'manual',
+  distance TEXT DEFAULT '',
+  avg_heart_rate INTEGER DEFAULT 0,
   created_at TEXT DEFAULT (datetime('now'))
 );
 
