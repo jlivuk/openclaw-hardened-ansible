@@ -6,6 +6,12 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Carlos, Your Fitness Agent</title>
+<script src="https://browser.sentry-cdn.com/8.x/bundle.min.js" crossorigin="anonymous"></script>
+<script>
+if (window.Sentry && window.__SENTRY_DSN__) {
+  Sentry.init({ dsn: window.__SENTRY_DSN__, environment: 'production' });
+}
+</script>
 <style>
   :root { --bg: #0d1117; --surface: #161b22; --border: #30363d; --text: #e6edf3; --muted: #8b949e; --green: #3fb950; --blue: #58a6ff; --orange: #d29922; --red: #f85149; }
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -433,8 +439,12 @@ async function deleteEntry(table, id) {
     const r = await apiFetch('/api/entry/' + table + '/' + id, { method: 'DELETE' });
     if (!r.ok) { const d = await r.json().catch(() => ({})); alert(d.error || 'Delete failed'); return; }
     // Re-render the active view
-    if (document.getElementById('exercise-content')?.style.display !== 'none' && table === 'exercise') {
+    if (table === 'exercise' && document.getElementById('exercise-content')?.style.display !== 'none') {
       loadExercise();
+    } else if (table === 'weight') {
+      window._weightLoaded = false; loadWeight();
+    } else if (table === 'sleep') {
+      window._sleepLoaded = false; loadSleep();
     } else {
       loadDays();
     }
@@ -460,6 +470,7 @@ async function doLogin() {
     setToken(data.token);
     localStorage.setItem('carlos_user', data.displayName || data.username);
     localStorage.setItem('carlos_role', data.role || 'user');
+    if (window.Sentry) Sentry.setUser({ username: data.username });
     showDashboard();
   } catch (err) {
     errEl.textContent = 'Connection error'; errEl.style.display = ''; btn.disabled = false;
@@ -1337,7 +1348,7 @@ function renderWeightChart(entries) {
   html += `</svg></div>`;
 
   const last10 = entries.slice(-10).reverse();
-  html += `<h3>Recent Entries</h3><table><tr><th>Date</th><th>Weight</th><th>Change</th><th>Notes</th></tr>`;
+  html += `<h3>Recent Entries</h3><table><tr><th>Date</th><th>Weight</th><th>Change</th><th>Notes</th><th></th></tr>`;
   for (let i = 0; i < last10.length; i++) {
     const e = last10[i];
     const prev = last10[i + 1];
@@ -1348,7 +1359,7 @@ function renderWeightChart(entries) {
       cls = d < 0 ? 'down' : d > 0 ? 'up' : 'flat';
       change = `<span class="weight-change ${cls}">${d > 0 ? '+' : ''}${d}</span>`;
     }
-    html += `<tr><td>${esc(e.date)}</td><td>${esc(e.weight)} lbs</td><td>${change}</td><td>${esc(e.notes)}</td></tr>`;
+    html += `<tr><td>${esc(e.date)}</td><td>${esc(e.weight)} lbs</td><td>${change}</td><td>${esc(e.notes)}</td><td>${e.id ? `<button class="delete-btn" onclick="deleteEntry('weight',${e.id})">🗑</button>` : ''}</td></tr>`;
   }
   html += `</table></div>`;
   return html;
@@ -1564,7 +1575,7 @@ function renderSleepChart(data) {
   const recent = entries.slice(0, 10);
   if (recent.length) {
     html += '<h3>Recent Entries</h3>';
-    html += '<table><tr><th>Date</th><th>Duration</th><th>Source</th><th>Notes</th></tr>';
+    html += '<table><tr><th>Date</th><th>Duration</th><th>Source</th><th>Notes</th><th></th></tr>';
     for (const e of recent) {
       const src = e.source === 'apple_health' ? 'Apple Health' : 'Manual';
       html += '<tr>';
@@ -1572,6 +1583,7 @@ function renderSleepChart(data) {
       html += '<td>' + fmtSleep(e.duration) + '</td>';
       html += '<td>' + esc(src) + '</td>';
       html += '<td>' + esc(e.notes) + '</td>';
+      html += '<td>' + (e.id ? '<button class="delete-btn" onclick="deleteEntry(\'sleep\',' + e.id + ')">🗑</button>' : '') + '</td>';
       html += '</tr>';
     }
     html += '</table>';

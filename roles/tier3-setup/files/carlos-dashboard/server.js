@@ -1,3 +1,17 @@
+// Sentry error tracking (graceful: null when package missing or no DSN)
+let Sentry;
+try {
+  Sentry = require('@sentry/node');
+  if (process.env.SENTRY_DSN) {
+    Sentry.init({
+      dsn: process.env.SENTRY_DSN,
+      environment: process.env.NODE_ENV || 'development',
+      sampleRate: 1.0,
+      maxBreadcrumbs: 50,
+    });
+  } else { Sentry = null; }
+} catch { Sentry = null; }
+
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
@@ -83,6 +97,7 @@ function dbQuery(sql, dbPath) {
     return JSON.parse(result);
   } catch (err) {
     log.error('DB query error', { error: err.message });
+    if (Sentry) Sentry.captureException(err);
     return [];
   }
 }
@@ -94,7 +109,8 @@ function dbValue(sql, dbPath) {
       encoding: 'utf8',
       timeout: 5000
     }).trim();
-  } catch {
+  } catch (err) {
+    if (Sentry) Sentry.captureException(err);
     return '';
   }
 }
@@ -507,8 +523,13 @@ const server = http.createServer(async (req, res) => {
   // --- Static files: no auth required, served from cache ---
   if (req.url === '/' || req.url === '/index.html') {
     if (cachedDashboard) {
+      let html = cachedDashboard;
+      if (Sentry && process.env.SENTRY_DSN) {
+        html = html.replace('</head>',
+          `<script>window.__SENTRY_DSN__="${process.env.SENTRY_DSN}";</script></head>`);
+      }
       res.writeHead(200, { 'Content-Type': 'text/html' });
-      res.end(cachedDashboard);
+      res.end(html);
     } else {
       res.writeHead(500);
       res.end('Dashboard not found');
@@ -802,7 +823,7 @@ const server = http.createServer(async (req, res) => {
     const { db, memoryDir } = userPaths(authUser.username);
 
     // DELETE /api/entry/:table/:id — delete a single entry by ID
-    const deleteMatch = req.url.match(/^\/api\/entry\/(meals|exercise)\/(\d+)$/);
+    const deleteMatch = req.url.match(/^\/api\/entry\/(meals|exercise|weight|sleep)\/(\d+)$/);
     if (deleteMatch && req.method === 'DELETE') {
       if (!hasMinRole(userRole, 'user')) {
         jsonResp(res, 403, { error: 'Insufficient permissions' });
@@ -1118,7 +1139,7 @@ const server = http.createServer(async (req, res) => {
         }
 
         const whereClause = startDate ? ` WHERE date >= '${startDate}'` : '';
-        let entries = dbQuery(`SELECT date, weight_lbs AS weight, notes FROM weight${whereClause} ORDER BY date ASC`, db);
+        let entries = dbQuery(`SELECT id, date, weight_lbs AS weight, notes FROM weight${whereClause} ORDER BY date ASC`, db);
 
         if (!entries.length) {
           try {
@@ -1188,7 +1209,7 @@ const server = http.createServer(async (req, res) => {
         d.setDate(d.getDate() - daysBack);
         const startDate = d.toISOString().slice(0, 10);
 
-        const manualEntries = dbQuery(`SELECT date, duration_minutes, notes, source FROM sleep WHERE date >= '${startDate}' ORDER BY date DESC`, db);
+        const manualEntries = dbQuery(`SELECT id, date, duration_minutes, notes, source FROM sleep WHERE date >= '${startDate}' ORDER BY date DESC`, db);
         const manualDates = new Set(manualEntries.map(e => e.date));
 
         const ahEntries = dbQuery(`SELECT date, sleep_minutes FROM apple_health WHERE sleep_minutes IS NOT NULL AND sleep_minutes > 0 AND date >= '${startDate}' ORDER BY date DESC`, db);
@@ -1833,11 +1854,11 @@ const server = http.createServer(async (req, res) => {
 
         if (WebSocketImpl === globalThis.WebSocket) {
           ws.onmessage = onMsg;
-          ws.onerror = () => { clearTimeout(chatTimeout); sseEnd('error', { error: 'Could not reach Carlos. Is OpenClaw running?' }); };
+          ws.onerror = (e) => { clearTimeout(chatTimeout); if (Sentry) Sentry.captureException(e.error || new Error('WebSocket gateway error')); sseEnd('error', { error: 'Could not reach Carlos. Is OpenClaw running?' }); };
           ws.onclose = () => { clearTimeout(chatTimeout); sseEnd('error', { error: 'Gateway connection closed unexpectedly.' }); };
         } else {
           ws.on('message', onMsg);
-          ws.on('error', () => { clearTimeout(chatTimeout); sseEnd('error', { error: 'Could not reach Carlos. Is OpenClaw running?' }); });
+          ws.on('error', (err) => { clearTimeout(chatTimeout); if (Sentry) Sentry.captureException(err); sseEnd('error', { error: 'Could not reach Carlos. Is OpenClaw running?' }); });
           ws.on('close', () => { clearTimeout(chatTimeout); sseEnd('error', { error: 'Gateway connection closed unexpectedly.' }); });
         }
       } catch (err) {
@@ -1868,6 +1889,17 @@ const server = http.createServer(async (req, res) => {
 
   res.writeHead(404);
   res.end('Not found');
+});
+
+// Process-level error handlers (Sentry capture + structured log)
+process.on('uncaughtException', (err) => {
+  log.error('Uncaught exception', { error: err.message, stack: err.stack });
+  if (Sentry) { Sentry.captureException(err); Sentry.flush(2000).then(() => process.exit(1)); }
+  else process.exit(1);
+});
+process.on('unhandledRejection', (reason) => {
+  log.error('Unhandled rejection', { error: String(reason) });
+  if (Sentry) Sentry.captureException(reason);
 });
 
 const HOST = process.env.CARLOS_HOST || '0.0.0.0';

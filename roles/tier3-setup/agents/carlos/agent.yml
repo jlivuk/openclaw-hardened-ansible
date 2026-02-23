@@ -10,6 +10,8 @@ dashboard:
   extra_env:
     CARLOS_DATA_DIR: /home/node/carlos-dashboard
     CARLOS_MEMORY_BASE: /home/node/.openclaw/workspace-carlos/memory
+    NODE_ENV: production
+    SENTRY_DSN: https://1567c2c46fc7a33396fdfded0894d692@o4510937277005824.ingest.de.sentry.io/4510937279692880
 
 # Paths (relative to docker_dir on the Pi)
 workspace: workspace-carlos
