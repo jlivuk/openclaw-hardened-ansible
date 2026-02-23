@@ -2,12 +2,14 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Carlos, Your Fitness Agent</title>
 <style>
   :root { --bg: #0d1117; --surface: #161b22; --border: #30363d; --text: #e6edf3; --muted: #8b949e; --green: #3fb950; --blue: #58a6ff; --orange: #d29922; --red: #f85149; }
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); padding: 20px; max-width: 800px; margin: 0 auto; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); padding: max(20px, env(safe-area-inset-top)) 20px env(safe-area-inset-bottom) 20px; max-width: 800px; margin: 0 auto; }
   h1 { font-size: 1.6em; margin-bottom: 4px; }
   .subtitle { color: var(--muted); margin-bottom: 24px; font-size: 0.9em; }
   .nav { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
@@ -121,11 +123,11 @@
   .welcome-btn-secondary:hover { border-color: var(--green); }
 
   /* Chat Widget */
-  .chat-fab { position: fixed; bottom: 24px; right: 24px; width: 56px; height: 56px; border-radius: 50%; background: var(--blue); border: none; color: #fff; font-size: 24px; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.4); z-index: 1000; display: flex; align-items: center; justify-content: center; transition: transform 0.2s; }
+  .chat-fab { position: fixed; bottom: calc(24px + env(safe-area-inset-bottom)); right: calc(24px + env(safe-area-inset-right)); width: 56px; height: 56px; border-radius: 50%; background: var(--blue); border: none; color: #fff; font-size: 24px; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.4); z-index: 1000; display: flex; align-items: center; justify-content: center; transition: transform 0.2s; }
   .chat-fab:hover { transform: scale(1.1); }
   .feedback-fab { position: fixed; bottom: 24px; left: 24px; height: 36px; padding: 0 14px; border-radius: 18px; background: var(--surface); border: 1px solid var(--border); color: var(--muted); font-size: 0.8em; font-family: inherit; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.3); z-index: 1000; display: flex; align-items: center; gap: 6px; transition: transform 0.2s; }
   .feedback-fab:hover { transform: scale(1.05); border-color: var(--green); color: var(--green); }
-  .chat-panel { position: fixed; bottom: 90px; right: 24px; width: 360px; max-height: 500px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.5); z-index: 1000; display: none; flex-direction: column; overflow: hidden; }
+  .chat-panel { position: fixed; bottom: calc(90px + env(safe-area-inset-bottom)); right: calc(24px + env(safe-area-inset-right)); width: 360px; max-height: 500px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.5); z-index: 1000; display: none; flex-direction: column; overflow: hidden; }
   .chat-panel.open { display: flex; }
   .chat-header { padding: 12px 16px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
   .chat-header h3 { font-size: 0.95em; margin: 0; }
@@ -189,7 +191,9 @@
   .admin-actions button:hover { border-color: var(--blue); color: var(--blue); }
   .admin-actions button.danger:hover { border-color: var(--red); color: var(--red); }
 
-  @media (max-width: 480px) { .chat-panel { width: calc(100vw - 32px); right: 16px; bottom: 84px; } }
+  @media (max-width: 480px) { .chat-panel { width: calc(100vw - 32px - env(safe-area-inset-left) - env(safe-area-inset-right)); right: calc(16px + env(safe-area-inset-right)); bottom: calc(84px + env(safe-area-inset-bottom)); } }
+  .delete-btn { background:none; border:none; cursor:pointer; opacity:0.4; font-size:1em; padding:2px 6px; }
+  tr:hover .delete-btn { opacity:1; }
 </style>
 </head>
 <body>
@@ -421,6 +425,20 @@ async function apiFetch(url, opts = {}) {
   const res = await fetch(url, { ...opts, headers });
   if (res.status === 401) { doLogout(); throw new Error('Session expired'); }
   return res;
+}
+
+async function deleteEntry(table, id) {
+  if (!confirm('Delete this entry?')) return;
+  try {
+    const r = await apiFetch('/api/entry/' + table + '/' + id, { method: 'DELETE' });
+    if (!r.ok) { const d = await r.json().catch(() => ({})); alert(d.error || 'Delete failed'); return; }
+    // Re-render the active view
+    if (document.getElementById('exercise-content')?.style.display !== 'none' && table === 'exercise') {
+      loadExercise();
+    } else {
+      loadDays();
+    }
+  } catch (e) { alert('Delete failed: ' + e.message); }
 }
 
 async function doLogin() {
@@ -1426,7 +1444,7 @@ function renderExerciseChart(data) {
   const recent = (data.recent || []).slice(0, 10);
   if (recent.length) {
     html += '<h3>Recent Workouts</h3>';
-    html += '<table><tr><th>Date</th><th>Activity</th><th>Duration</th><th>Calories</th><th>Distance</th><th>HR</th><th>Notes</th></tr>';
+    html += '<table><tr><th>Date</th><th>Activity</th><th>Duration</th><th>Calories</th><th>Distance</th><th>HR</th><th>Notes</th><th></th></tr>';
     for (const r of recent) {
       html += '<tr>';
       html += '<td>' + esc(r.date) + '</td>';
@@ -1436,6 +1454,7 @@ function renderExerciseChart(data) {
       html += '<td>' + (r.distance ? esc(r.distance) : '\u2014') + '</td>';
       html += '<td>' + (r.avg_heart_rate ? r.avg_heart_rate + ' bpm' : '\u2014') + '</td>';
       html += '<td>' + esc(r.notes) + '</td>';
+      html += '<td><button class="delete-btn" onclick="deleteEntry(\'exercise\',' + r.id + ')">🗑</button></td>';
       html += '</tr>';
     }
     html += '</table>';
@@ -1720,13 +1739,13 @@ function renderDay(date, data) {
     <div class="stat"><div class="label">Surplus / Deficit</div><div class="value ${diffClass}">${diffLabel}</div></div>
   </div>`;
   if (meals.length) {
-    html += `<h3>Meals</h3><table><tr><th>Time</th><th>Meal</th><th>Cal</th><th>Protein</th><th>Carbs</th><th>Fat</th></tr>`;
-    for (const m of meals) html += `<tr><td>${esc(m.time)}</td><td>${esc(m.meal)}</td><td>${esc(m.calories)}</td><td>${esc(m.protein)}</td><td>${esc(m.carbs)}</td><td>${esc(m.fat)}</td></tr>`;
+    html += `<h3>Meals</h3><table><tr><th>Time</th><th>Meal</th><th>Cal</th><th>Protein</th><th>Carbs</th><th>Fat</th><th></th></tr>`;
+    for (const m of meals) html += `<tr><td>${esc(m.time)}</td><td>${esc(m.meal)}</td><td>${esc(m.calories)}</td><td>${esc(m.protein)}</td><td>${esc(m.carbs)}</td><td>${esc(m.fat)}</td><td><button class="delete-btn" onclick="deleteEntry('meals',${m.id})">🗑</button></td></tr>`;
     html += `</table>`;
   }
   if (exercises.length) {
-    html += `<h3>Exercise</h3><table><tr><th>Time</th><th>Activity</th><th>Duration</th><th>Burned</th></tr>`;
-    for (const e of exercises) html += `<tr><td>${esc(e.time)}</td><td>${esc(e.activity)}</td><td>${esc(e.duration)}</td><td>${esc(e.calories_burned)}</td></tr>`;
+    html += `<h3>Exercise</h3><table><tr><th>Time</th><th>Activity</th><th>Duration</th><th>Burned</th><th></th></tr>`;
+    for (const e of exercises) html += `<tr><td>${esc(e.time)}</td><td>${esc(e.activity)}</td><td>${esc(e.duration)}</td><td>${esc(e.calories_burned)}</td><td><button class="delete-btn" onclick="deleteEntry('exercise',${e.id})">🗑</button></td></tr>`;
     html += `</table>`;
   }
   if (hydration.length) {

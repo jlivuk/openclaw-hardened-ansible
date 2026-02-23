@@ -179,9 +179,15 @@ case "$ACTION" in
     NOTES="${NOTES//\'/\'\'}"
     TIME="${TIME//\'/\'\'}"
 
-    "$SQLITE" "$DB" "INSERT INTO exercise (date, time, activity, duration, calories_burned, notes) VALUES ('$TODAY', '$TIME', '$ACTIVITY', '$DURATION', $BURNED, '$NOTES');"
-
-    echo "Logged exercise: $ACTIVITY ($DURATION, $BURNED cal burned) at $TIME"
+    # Dedup: skip if Apple Health already synced this activity today
+    EXISTING=$("$SQLITE" "$DB" "SELECT id, time, duration, calories_burned FROM exercise WHERE date='$TODAY' AND LOWER(activity)=LOWER('$ACTIVITY') AND source='apple_health' LIMIT 1;")
+    if [ -n "$EXISTING" ]; then
+      echo "SKIPPED: Apple Health already synced $ACTIVITY today (${EXISTING})."
+      echo "Use 'delete' command first if you want to replace it."
+    else
+      "$SQLITE" "$DB" "INSERT INTO exercise (date, time, activity, duration, calories_burned, notes) VALUES ('$TODAY', '$TIME', '$ACTIVITY', '$DURATION', $BURNED, '$NOTES');"
+      echo "Logged exercise: $ACTIVITY ($DURATION, $BURNED cal burned) at $TIME"
+    fi
     # Check workout count milestone
     TOTAL_EXERCISES=$("$SQLITE" "$DB" "SELECT COUNT(*) FROM exercise;")
     check_milestone "exercise" "$TOTAL_EXERCISES" "workouts completed"

@@ -629,7 +629,8 @@ const server = http.createServer(async (req, res) => {
       req.url.startsWith('/api/chat/') ||
       (req.url === '/api/preferences' && req.method === 'POST') ||
       (req.url === '/api/feedback' && req.method === 'POST') ||
-      (req.url === '/api/templates' && req.method === 'POST')
+      (req.url === '/api/templates' && req.method === 'POST') ||
+      (req.url.startsWith('/api/entry/') && req.method === 'DELETE')
     )) {
       jsonResp(res, 403, { error: 'Insufficient permissions' });
       return;
@@ -799,6 +800,42 @@ const server = http.createServer(async (req, res) => {
     }
 
     const { db, memoryDir } = userPaths(authUser.username);
+
+    // DELETE /api/entry/:table/:id — delete a single entry by ID
+    const deleteMatch = req.url.match(/^\/api\/entry\/(meals|exercise)\/(\d+)$/);
+    if (deleteMatch && req.method === 'DELETE') {
+      if (!hasMinRole(userRole, 'user')) {
+        jsonResp(res, 403, { error: 'Insufficient permissions' });
+        return;
+      }
+      const table = deleteMatch[1];
+      const id = parseInt(deleteMatch[2], 10);
+      if (isNaN(id)) {
+        jsonResp(res, 400, { error: 'Invalid id' });
+        return;
+      }
+      try {
+        const existing = dbQuery(`SELECT id FROM ${table} WHERE id=${id}`, db);
+        if (!existing.length) {
+          jsonResp(res, 404, { error: 'Entry not found' });
+          return;
+        }
+        execFileSync('sqlite3', [db, `DELETE FROM ${table} WHERE id=${id}`], { timeout: 5000 });
+        log.info('Entry deleted', { table, id, user: authUser.username });
+        sseBroadcast(authUser.username, 'refresh', { table });
+        jsonResp(res, 200, { ok: true });
+      } catch (err) {
+        log.error('Delete failed', { table, id, error: err.message });
+        jsonResp(res, 500, { error: 'Delete failed' });
+      }
+      return;
+    }
+
+    // Reject DELETE to /api/entry/ with invalid table
+    if (req.url.startsWith('/api/entry/') && req.method === 'DELETE') {
+      jsonResp(res, 400, { error: 'Invalid table' });
+      return;
+    }
 
     // GET /api/me — return current user info
     if (req.url === '/api/me') {
@@ -1017,9 +1054,9 @@ const server = http.createServer(async (req, res) => {
     if (logMatch) {
       const date = logMatch[1];
       try {
-        const meals = dbQuery(`SELECT time, meal, calories, protein, carbs, fat, notes FROM meals WHERE date='${date}' ORDER BY CASE WHEN time LIKE '%AM' THEN 0 ELSE 1 END, CAST(REPLACE(SUBSTR(time,1,INSTR(time,':')-1),'12','0') AS INTEGER) + CASE WHEN time LIKE '%PM' THEN 12 ELSE 0 END, SUBSTR(time,INSTR(time,':')+1,2)`, db);
+        const meals = dbQuery(`SELECT id, time, meal, calories, protein, carbs, fat, notes FROM meals WHERE date='${date}' ORDER BY CASE WHEN time LIKE '%AM' THEN 0 ELSE 1 END, CAST(REPLACE(SUBSTR(time,1,INSTR(time,':')-1),'12','0') AS INTEGER) + CASE WHEN time LIKE '%PM' THEN 12 ELSE 0 END, SUBSTR(time,INSTR(time,':')+1,2)`, db);
         const hydration = dbQuery(`SELECT time, glass_num FROM hydration WHERE date='${date}' ORDER BY glass_num`, db);
-        const exercise = dbQuery(`SELECT time, activity, duration, calories_burned, notes, source, distance, avg_heart_rate FROM exercise WHERE date='${date}' ORDER BY CASE WHEN time LIKE '%AM' THEN 0 ELSE 1 END, CAST(REPLACE(SUBSTR(time,1,INSTR(time,':')-1),'12','0') AS INTEGER) + CASE WHEN time LIKE '%PM' THEN 12 ELSE 0 END, SUBSTR(time,INSTR(time,':')+1,2)`, db);
+        const exercise = dbQuery(`SELECT id, time, activity, duration, calories_burned, notes, source, distance, avg_heart_rate FROM exercise WHERE date='${date}' ORDER BY CASE WHEN time LIKE '%AM' THEN 0 ELSE 1 END, CAST(REPLACE(SUBSTR(time,1,INSTR(time,':')-1),'12','0') AS INTEGER) + CASE WHEN time LIKE '%PM' THEN 12 ELSE 0 END, SUBSTR(time,INSTR(time,':')+1,2)`, db);
 
         const sleepRows = dbQuery(`SELECT duration_minutes, notes, source FROM sleep WHERE date='${date}'`, db);
         const health = readHealthFromSqlite(db, date) || parseHealthFromMarkdown(memoryDir, date);
@@ -1106,7 +1143,7 @@ const server = http.createServer(async (req, res) => {
     if (req.url === '/api/exercise') {
       try {
         // 1. Recent exercises (last 30)
-        const recent = dbQuery("SELECT date, time, activity, duration, calories_burned AS calories, notes, source, distance, avg_heart_rate FROM exercise ORDER BY date DESC, rowid DESC LIMIT 30", db);
+        const recent = dbQuery("SELECT id, date, time, activity, duration, calories_burned AS calories, notes, source, distance, avg_heart_rate FROM exercise ORDER BY date DESC, rowid DESC LIMIT 30", db);
 
         // 2. This week's stats (last 7 days)
         const weekStart = new Date(); weekStart.setDate(weekStart.getDate() - 6);
@@ -1406,8 +1443,12 @@ const server = http.createServer(async (req, res) => {
             const wMinutes = sHour * 60 + sMin;
 
             const wDuration = `${Math.round(dur)} min`;
-            // Calories: check activeEnergy.qty, totalEnergy.qty, or flat calories
-            const rawCal = numVal(w.activeEnergy) || numVal(w.totalEnergy) || numVal(w.calories);
+            // Calories: check activeEnergyBurned, activeEnergy, totalEnergyBurned, totalEnergy, or flat calories
+            // Health Auto Export sends energy in kJ; convert to kcal (1 kcal = 4.184 kJ)
+            const calSource = [w.activeEnergyBurned, w.activeEnergy, w.totalEnergyBurned, w.totalEnergy].find(v => numVal(v) > 0);
+            const calUnits = calSource && typeof calSource === 'object' ? calSource.units : '';
+            let rawCal = calSource ? numVal(calSource) : numVal(w.calories);
+            if (calUnits && calUnits.toLowerCase() === 'kj') rawCal = rawCal / 4.184;
             const wCal = isFinite(rawCal) && rawCal > 0 ? Math.round(rawCal) : 0;
             // Distance: check distance.qty or flat distance
             const rawDist = numVal(w.distance);
