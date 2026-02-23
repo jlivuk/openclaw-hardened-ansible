@@ -4,7 +4,9 @@ FROM node:22-alpine
 RUN apk add --no-cache git python3 make g++ cmake linux-headers openssl sqlite bash
 
 # Install OpenClaw globally
-RUN npm install -g openclaw@latest
+# SECURITY: Pinned to 2026.2.15 — do not bump without reviewing CVE advisories
+# See: CVE-2026-25253 (RCE), GHSA-r8g4-86fx-92mq (LFI), GHSA-q284-4pvr-m585 (command injection)
+RUN npm install -g openclaw@2026.2.15
 
 # Create agents directory with per-agent subdirs (writable by node user for session data)
 RUN mkdir -p /opt/openclaw/agents \
