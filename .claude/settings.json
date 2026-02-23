@@ -1,0 +1,33 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(bash /Users/johnlivaudais/ClaudeCode/.claude/scripts/check-locks.sh*)",
+      "Bash(bash /Users/johnlivaudais/ClaudeCode/.claude/scripts/acquire-lock.sh*)",
+      "Bash(bash /Users/johnlivaudais/ClaudeCode/.claude/scripts/release-lock.sh*)"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash /Users/johnlivaudais/ClaudeCode/.claude/scripts/acquire-lock.sh infra 'session started'",
+            "timeout": 5000
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash /Users/johnlivaudais/ClaudeCode/.claude/scripts/release-lock.sh --sweep",
+            "timeout": 5000
+          }
+        ]
+      }
+    ]
+  }
+}
