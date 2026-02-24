@@ -276,8 +276,102 @@ case "$ACTION" in
     fi
     ;;
 
+  checklists)
+    echo "=== Seasonal Checklists ==="
+    echo ""
+
+    # Show available templates
+    TEMPLATES=$("$SQLITE" "$DB" "
+      SELECT sc.id, sc.name, sc.season, COUNT(ci.id) AS item_count
+      FROM seasonal_checklists sc
+      LEFT JOIN checklist_items ci ON ci.checklist_id = sc.id
+      WHERE sc.is_template = 1
+      GROUP BY sc.id
+      ORDER BY sc.name;
+    ")
+
+    if [ -n "$TEMPLATES" ]; then
+      echo "## Templates:"
+      echo "$TEMPLATES" | while IFS='|' read -r id name season count; do
+        echo "  [$id] $name ($season) — $count items"
+      done
+      echo ""
+    fi
+
+    # Show active user checklists with progress
+    ACTIVE=$("$SQLITE" "$DB" "
+      SELECT sc.id, sc.name, sc.season, sc.year, sc.completed_at,
+        COUNT(ci.id) AS total,
+        SUM(CASE WHEN ci.completed_at IS NOT NULL THEN 1 ELSE 0 END) AS done
+      FROM seasonal_checklists sc
+      LEFT JOIN checklist_items ci ON ci.checklist_id = sc.id
+      WHERE sc.is_template = 0
+      GROUP BY sc.id
+      ORDER BY sc.completed_at IS NOT NULL, sc.year DESC, sc.name;
+    ")
+
+    if [ -n "$ACTIVE" ]; then
+      echo "## Active Checklists:"
+      echo "$ACTIVE" | while IFS='|' read -r id name season year completed total done; do
+        if [ -n "$completed" ]; then
+          STATUS="DONE"
+        else
+          STATUS="$done/$total"
+        fi
+        echo "  [$id] $name ($year) — $STATUS"
+      done
+    else
+      echo "No active checklists. Use 'log-entry.sh checklist-activate <slug> <year>' to start one."
+    fi
+    ;;
+
+  checklist)
+    CHECKLIST_ID="${2:?checklist ID required}"
+
+    # Validate ID
+    if ! echo "$CHECKLIST_ID" | grep -qE '^[0-9]+$'; then
+      echo "ERROR: Checklist ID must be a positive integer."
+      exit 1
+    fi
+
+    # Fetch checklist details
+    CHECKLIST=$("$SQLITE" "$DB" "SELECT name, season, is_template, year, completed_at FROM seasonal_checklists WHERE id=$CHECKLIST_ID;")
+    if [ -z "$CHECKLIST" ]; then
+      echo "ERROR: Checklist $CHECKLIST_ID not found."
+      exit 1
+    fi
+
+    CL_NAME=$(echo "$CHECKLIST" | cut -d'|' -f1)
+    CL_SEASON=$(echo "$CHECKLIST" | cut -d'|' -f2)
+    CL_IS_TEMPLATE=$(echo "$CHECKLIST" | cut -d'|' -f3)
+    CL_YEAR=$(echo "$CHECKLIST" | cut -d'|' -f4)
+    CL_COMPLETED=$(echo "$CHECKLIST" | cut -d'|' -f5)
+
+    if [ "$CL_IS_TEMPLATE" = "1" ]; then
+      echo "=== Template: $CL_NAME ($CL_SEASON) ==="
+    else
+      echo "=== $CL_NAME ($CL_YEAR) ==="
+      [ -n "$CL_COMPLETED" ] && echo "Status: Completed on $CL_COMPLETED" || echo "Status: In progress"
+    fi
+    echo ""
+
+    # List items
+    ITEMS=$("$SQLITE" "$DB" "SELECT id, task, completed_at FROM checklist_items WHERE checklist_id=$CHECKLIST_ID ORDER BY sort_order;")
+    if [ -n "$ITEMS" ]; then
+      echo "$ITEMS" | while IFS='|' read -r item_id task completed; do
+        if [ -n "$completed" ]; then
+          echo "  [x] ($item_id) $task"
+        else
+          echo "  [ ] ($item_id) $task"
+        fi
+      done
+    else
+      echo "  No items."
+    fi
+    ;;
+
   *)
-    echo "Usage: query-log.sh {today|overdue|upcoming [N]|appliance <name>|history [N]|ha-status|ha-entities [domain]|ha-entity <id>}"
+    echo "Usage: query-log.sh {today|overdue|upcoming [N]|appliance <name>|history [N]|checklists|checklist <id>|ha-status|ha-entities [domain]|ha-entity <id>}"
     exit 1
     ;;
 esac

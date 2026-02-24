@@ -88,6 +88,26 @@ function dbValue(sql, dbPath) {
   }
 }
 
+// Helper: build a greeting string with time-of-day and summary
+function buildGreeting(displayName, data) {
+  const hour = new Date().getHours();
+  const timeOfDay = hour >= 5 && hour < 12 ? 'morning' : hour >= 12 && hour < 17 ? 'afternoon' : 'evening';
+  const name = displayName || 'there';
+  let summary;
+  if (data.overdueCount > 0) {
+    summary = `You have ${data.overdueCount} overdue item${data.overdueCount > 1 ? 's' : ''}.`;
+  } else if (data.todayCount > 0) {
+    summary = `You have ${data.todayCount} task${data.todayCount > 1 ? 's' : ''} scheduled today.`;
+  } else if (data.upcomingCount > 0 && data.nextUpcoming) {
+    const dueDate = new Date(data.nextUpcoming.next_due + 'T00:00:00');
+    const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+    summary = `${data.nextUpcoming.task} is coming up on ${days[dueDate.getDay()]}.`;
+  } else {
+    summary = "Everything's on track.";
+  }
+  return `Good ${timeOfDay}, ${name}. ${summary}`;
+}
+
 // Home Assistant API client
 async function haFetch(baseUrl, token, path, opts = {}) {
   const url = new URL(path, baseUrl.endsWith('/') ? baseUrl : baseUrl + '/');
@@ -159,7 +179,33 @@ function provisionSingleUser(username) {
         CREATE INDEX IF NOT EXISTS idx_chat_history_session ON chat_history(session_key);
         CREATE TABLE IF NOT EXISTS feedback (id INTEGER PRIMARY KEY AUTOINCREMENT, category TEXT NOT NULL, message TEXT NOT NULL, page TEXT DEFAULT '', created_at TEXT DEFAULT (datetime('now')));
         CREATE TABLE IF NOT EXISTS streaks (metric TEXT PRIMARY KEY, current INTEGER NOT NULL DEFAULT 0, best INTEGER NOT NULL DEFAULT 0, last_active TEXT NOT NULL DEFAULT '\u2014');
+        CREATE TABLE IF NOT EXISTS seasonal_checklists (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, slug TEXT UNIQUE, season TEXT NOT NULL DEFAULT '', is_template INTEGER NOT NULL DEFAULT 0, template_id INTEGER, year INTEGER, completed_at TEXT, created_at TEXT DEFAULT (datetime('now')), FOREIGN KEY (template_id) REFERENCES seasonal_checklists(id));
+        CREATE TABLE IF NOT EXISTS checklist_items (id INTEGER PRIMARY KEY AUTOINCREMENT, checklist_id INTEGER NOT NULL, task TEXT NOT NULL, sort_order INTEGER NOT NULL DEFAULT 0, completed_at TEXT, FOREIGN KEY (checklist_id) REFERENCES seasonal_checklists(id) ON DELETE CASCADE);
+        CREATE INDEX IF NOT EXISTS idx_checklist_items_checklist ON checklist_items(checklist_id);
+        INSERT OR IGNORE INTO seasonal_checklists (name, slug, season, is_template) VALUES ('Winterization', 'winterization', 'fall', 1);
+        INSERT OR IGNORE INTO seasonal_checklists (name, slug, season, is_template) VALUES ('Spring Check-up', 'spring-checkup', 'spring', 1);
+        INSERT OR IGNORE INTO seasonal_checklists (name, slug, season, is_template) VALUES ('Hurricane Prep', 'hurricane-prep', 'summer', 1);
+        INSERT OR IGNORE INTO seasonal_checklists (name, slug, season, is_template) VALUES ('Fall Fire Prevention', 'fall-fire-prevention', 'fall', 1);
       `], { timeout: 5000 });
+      // Seed checklist items (separate call to use subqueries)
+      try {
+        const seedItems = [
+          ['winterization', ['Insulate exposed pipes','Disconnect and drain outdoor hoses','Schedule furnace inspection','Clean gutters and downspouts','Check weather stripping on doors and windows','Test heating system and replace filter','Reverse ceiling fan direction to clockwise','Seal gaps and cracks in foundation','Stock winter emergency supplies']],
+          ['spring-checkup', ['Inspect roof for winter damage','Service AC unit before summer','Check exterior paint and siding for damage','Test smoke and CO detectors','Clean gutters and check drainage','Inspect deck and fence for rot or damage','Check window and door screens','Test sprinkler system and outdoor faucets','Apply pre-emergent weed treatment to lawn']],
+          ['hurricane-prep', ['Test and install storm shutters','Test generator and stock fuel','Trim trees and remove dead branches','Stock emergency water and food supplies','Secure outdoor furniture and loose items','Clear storm drains and gutters','Review insurance policies and document valuables','Prepare evacuation plan and emergency kit']],
+          ['fall-fire-prevention', ['Schedule chimney cleaning and inspection','Test all smoke detectors and replace batteries','Clean dryer vent and lint trap','Inspect electrical cords and outlets','Check fire extinguishers (charge and expiry)','Clear leaves and debris from roof and gutters','Review and practice family fire escape plan','Store firewood at least 30 feet from house']]
+        ];
+        let seedSql = '';
+        for (const [slug, items] of seedItems) {
+          for (let i = 0; i < items.length; i++) {
+            const task = items[i].replace(/'/g, "''");
+            seedSql += `INSERT OR IGNORE INTO checklist_items (checklist_id, task, sort_order) SELECT id, '${task}', ${i + 1} FROM seasonal_checklists WHERE slug='${slug}' AND NOT EXISTS (SELECT 1 FROM checklist_items WHERE checklist_id=(SELECT id FROM seasonal_checklists WHERE slug='${slug}') AND task='${task}');\n`;
+          }
+        }
+        execFileSync('sqlite3', [db, seedSql], { timeout: 5000 });
+      } catch (seedErr) {
+        log.warn('Checklist seed skipped', { user: username, error: seedErr.message });
+      }
       log.info('Provisioned DB', { user: username });
     } catch (err) {
       log.error('Failed to provision DB', { user: username, error: err.message });
@@ -372,8 +418,13 @@ const server = http.createServer(async (req, res) => {
       (req.url === '/api/schedule' && req.method === 'POST') ||
       (req.url === '/api/maintenance' && req.method === 'POST') ||
       (req.url === '/api/ha/call-service' && req.method === 'POST') ||
+      (req.url === '/api/checklists/activate' && req.method === 'POST') ||
+      req.url.match(/^\/api\/checklists\/\d+\/check\/\d+$/) ||
+      req.url.match(/^\/api\/checklists\/\d+\/uncheck\/\d+$/) ||
+      (req.url.match(/^\/api\/checklists\/\d+$/) && req.method === 'DELETE') ||
       req.url.match(/^\/api\/appliances\/\d+$/) ||
-      req.url.match(/^\/api\/schedule\/\d+$/)
+      req.url.match(/^\/api\/schedule\/\d+$/) ||
+      (req.url.match(/^\/api\/schedule\/\d+\/complete$/) && req.method === 'POST')
     )) {
       jsonResp(res, 403, { error: 'Insufficient permissions' });
       return;
@@ -792,6 +843,44 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // --- POST /api/schedule/:id/complete ---
+    const completeMatch = req.url.match(/^\/api\/schedule\/(\d+)\/complete$/);
+    if (completeMatch && req.method === 'POST') {
+      try {
+        const schedId = parseInt(completeMatch[1]);
+        const row = dbQuery(`SELECT task, appliance_id, interval_days FROM maintenance_schedule WHERE id=${schedId}`, db);
+        if (!row.length) {
+          jsonResp(res, 404, { error: 'Schedule not found' });
+          return;
+        }
+        const { task, appliance_id, interval_days } = row[0];
+        const body = await readBody(req, 4096);
+        const parsed = body ? JSON.parse(body) : {};
+        const cost = (typeof parsed.cost === 'number' && parsed.cost >= 0) ? parsed.cost : 0;
+        const escapedTask = escapeSql(task);
+        const notes = escapeSql((parsed.notes || '').slice(0, 1000));
+        const today = new Date().toISOString().slice(0, 10);
+        const appIdSql = appliance_id ? `${appliance_id}` : 'NULL';
+
+        // Log maintenance entry
+        execFileSync('sqlite3', [db, `INSERT INTO maintenance_log (date, task, appliance_id, cost, notes) VALUES ('${today}', '${escapedTask}', ${appIdSql}, ${cost}, '${notes}');`], { timeout: 5000 });
+        const maintenanceId = parseInt(dbValue("SELECT last_insert_rowid();", db));
+
+        // Advance schedule: last_completed = today, next_due = today + interval_days
+        const nextDate = new Date();
+        nextDate.setDate(nextDate.getDate() + interval_days);
+        const nextDue = nextDate.toISOString().slice(0, 10);
+        execFileSync('sqlite3', [db, `UPDATE maintenance_schedule SET last_completed='${today}', next_due='${nextDue}' WHERE id=${schedId};`], { timeout: 5000 });
+
+        jsonResp(res, 200, { ok: true, maintenance_id: maintenanceId, next_due: nextDue });
+        sseBroadcast(authUser.username, 'data-updated', { source: 'schedule' });
+      } catch (err) {
+        log.error('Complete schedule error', { error: err.message });
+        jsonResp(res, 500, { error: 'Failed to complete schedule' });
+      }
+      return;
+    }
+
     // --- GET /api/maintenance ---
     if ((req.url === '/api/maintenance' || req.url.startsWith('/api/maintenance?')) && req.method === 'GET') {
       try {
@@ -840,6 +929,154 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // ════════════════════════════════════════════════════════════
+    // SEASONAL CHECKLISTS
+    // ════════════════════════════════════════════════════════════
+
+    // --- GET /api/checklists ---
+    if (req.url === '/api/checklists' && req.method === 'GET') {
+      try {
+        const templates = dbQuery(`SELECT sc.id, sc.name, sc.slug, sc.season, COUNT(ci.id) AS item_count FROM seasonal_checklists sc LEFT JOIN checklist_items ci ON ci.checklist_id = sc.id WHERE sc.is_template = 1 GROUP BY sc.id ORDER BY sc.name`, db);
+        const active = dbQuery(`SELECT sc.id, sc.name, sc.season, sc.year, sc.template_id, sc.completed_at, COUNT(ci.id) AS total_items, SUM(CASE WHEN ci.completed_at IS NOT NULL THEN 1 ELSE 0 END) AS completed_items FROM seasonal_checklists sc LEFT JOIN checklist_items ci ON ci.checklist_id = sc.id WHERE sc.is_template = 0 GROUP BY sc.id ORDER BY sc.completed_at IS NOT NULL, sc.year DESC, sc.name`, db);
+        jsonResp(res, 200, { templates, active });
+      } catch (err) {
+        log.error('Checklists error', { error: err.message });
+        jsonResp(res, 500, { error: 'Failed to load checklists' });
+      }
+      return;
+    }
+
+    // --- POST /api/checklists/activate ---
+    if (req.url === '/api/checklists/activate' && req.method === 'POST') {
+      try {
+        const body = await readBody(req, 4096);
+        const { slug, year } = JSON.parse(body);
+        if (!slug || typeof slug !== 'string') {
+          jsonResp(res, 400, { error: 'Template slug is required' });
+          return;
+        }
+        if (!year || typeof year !== 'number' || year < 2000 || year > 2100) {
+          jsonResp(res, 400, { error: 'Valid year is required' });
+          return;
+        }
+        const slugSafe = escapeSql(slug);
+        const template = dbQuery(`SELECT id, name FROM seasonal_checklists WHERE slug='${slugSafe}' AND is_template=1`, db);
+        if (!template.length) {
+          jsonResp(res, 404, { error: 'Template not found' });
+          return;
+        }
+        const tmplId = template[0].id;
+        // Check if already activated
+        const existing = dbQuery(`SELECT id FROM seasonal_checklists WHERE template_id=${tmplId} AND year=${year} AND is_template=0`, db);
+        if (existing.length) {
+          jsonResp(res, 200, { ok: true, id: existing[0].id, already_existed: true });
+          return;
+        }
+        // Create user instance + copy items (single process so last_insert_rowid works)
+        const newIdStr = execFileSync('sqlite3', [db,
+          `INSERT INTO seasonal_checklists (name, season, is_template, template_id, year) SELECT name, season, 0, id, ${year} FROM seasonal_checklists WHERE id=${tmplId}; SELECT last_insert_rowid();`
+        ], { encoding: 'utf8', timeout: 5000 }).trim();
+        const newId = parseInt(newIdStr);
+        execFileSync('sqlite3', [db, `INSERT INTO checklist_items (checklist_id, task, sort_order) SELECT ${newId}, task, sort_order FROM checklist_items WHERE checklist_id=${tmplId} ORDER BY sort_order;`], { timeout: 5000 });
+        jsonResp(res, 201, { ok: true, id: newId });
+        sseBroadcast(authUser.username, 'data-updated', { source: 'checklist' });
+      } catch (err) {
+        log.error('Checklist activate error', { error: err.message });
+        jsonResp(res, 400, { error: 'Failed to activate checklist' });
+      }
+      return;
+    }
+
+    // --- GET /api/checklists/:id ---
+    const checklistDetailMatch = req.url.match(/^\/api\/checklists\/(\d+)$/);
+    if (checklistDetailMatch && req.method === 'GET') {
+      const clId = parseInt(checklistDetailMatch[1]);
+      try {
+        const cl = dbQuery(`SELECT id, name, season, is_template, year, completed_at FROM seasonal_checklists WHERE id=${clId}`, db);
+        if (!cl.length) {
+          jsonResp(res, 404, { error: 'Checklist not found' });
+          return;
+        }
+        const items = dbQuery(`SELECT id, task, sort_order, completed_at FROM checklist_items WHERE checklist_id=${clId} ORDER BY sort_order`, db);
+        jsonResp(res, 200, { checklist: cl[0], items });
+      } catch (err) {
+        log.error('Checklist detail error', { error: err.message });
+        jsonResp(res, 500, { error: 'Failed to load checklist' });
+      }
+      return;
+    }
+
+    // --- POST /api/checklists/:id/check/:itemId ---
+    const checkItemMatch = req.url.match(/^\/api\/checklists\/(\d+)\/check\/(\d+)$/);
+    if (checkItemMatch && req.method === 'POST') {
+      const clId = parseInt(checkItemMatch[1]);
+      const itemId = parseInt(checkItemMatch[2]);
+      try {
+        // Verify item belongs to this non-template checklist
+        const item = dbQuery(`SELECT ci.id FROM checklist_items ci JOIN seasonal_checklists sc ON ci.checklist_id=sc.id WHERE ci.id=${itemId} AND sc.id=${clId} AND sc.is_template=0`, db);
+        if (!item.length) {
+          jsonResp(res, 404, { error: 'Item not found in this checklist' });
+          return;
+        }
+        execFileSync('sqlite3', [db, `UPDATE checklist_items SET completed_at=datetime('now') WHERE id=${itemId};`], { timeout: 5000 });
+        // Auto-complete if all done
+        const remaining = parseInt(dbValue(`SELECT COUNT(*) FROM checklist_items WHERE checklist_id=${clId} AND completed_at IS NULL`, db)) || 0;
+        if (remaining === 0) {
+          execFileSync('sqlite3', [db, `UPDATE seasonal_checklists SET completed_at=datetime('now') WHERE id=${clId};`], { timeout: 5000 });
+        }
+        jsonResp(res, 200, { ok: true, checklist_completed: remaining === 0 });
+        sseBroadcast(authUser.username, 'data-updated', { source: 'checklist' });
+      } catch (err) {
+        log.error('Check item error', { error: err.message });
+        jsonResp(res, 500, { error: 'Failed to check item' });
+      }
+      return;
+    }
+
+    // --- POST /api/checklists/:id/uncheck/:itemId ---
+    const uncheckItemMatch = req.url.match(/^\/api\/checklists\/(\d+)\/uncheck\/(\d+)$/);
+    if (uncheckItemMatch && req.method === 'POST') {
+      const clId = parseInt(uncheckItemMatch[1]);
+      const itemId = parseInt(uncheckItemMatch[2]);
+      try {
+        const item = dbQuery(`SELECT ci.id FROM checklist_items ci JOIN seasonal_checklists sc ON ci.checklist_id=sc.id WHERE ci.id=${itemId} AND sc.id=${clId} AND sc.is_template=0`, db);
+        if (!item.length) {
+          jsonResp(res, 404, { error: 'Item not found in this checklist' });
+          return;
+        }
+        execFileSync('sqlite3', [db, `UPDATE checklist_items SET completed_at=NULL WHERE id=${itemId}; UPDATE seasonal_checklists SET completed_at=NULL WHERE id=${clId};`], { timeout: 5000 });
+        jsonResp(res, 200, { ok: true });
+        sseBroadcast(authUser.username, 'data-updated', { source: 'checklist' });
+      } catch (err) {
+        log.error('Uncheck item error', { error: err.message });
+        jsonResp(res, 500, { error: 'Failed to uncheck item' });
+      }
+      return;
+    }
+
+    // --- DELETE /api/checklists/:id ---
+    if (checklistDetailMatch && req.method === 'DELETE') {
+      const clId = parseInt(checklistDetailMatch[1]);
+      try {
+        const cl = dbQuery(`SELECT id, is_template FROM seasonal_checklists WHERE id=${clId}`, db);
+        if (!cl.length) {
+          jsonResp(res, 404, { error: 'Checklist not found' });
+          return;
+        }
+        if (cl[0].is_template) {
+          jsonResp(res, 400, { error: 'Cannot delete a template' });
+          return;
+        }
+        execFileSync('sqlite3', [db, `DELETE FROM checklist_items WHERE checklist_id=${clId}; DELETE FROM seasonal_checklists WHERE id=${clId};`], { timeout: 5000 });
+        jsonResp(res, 200, { ok: true });
+        sseBroadcast(authUser.username, 'data-updated', { source: 'checklist' });
+      } catch (err) {
+        log.error('Delete checklist error', { error: err.message });
+        jsonResp(res, 500, { error: 'Failed to delete checklist' });
+      }
+      return;
+    }
+
     // --- GET /api/summary ---
     if (req.url === '/api/summary') {
       try {
@@ -874,6 +1111,50 @@ const server = http.createServer(async (req, res) => {
       } catch (err) {
         log.error('Summary error', { error: err.message });
         jsonResp(res, 500, { error: 'Failed to load summary' });
+      }
+      return;
+    }
+
+    // --- GET /api/briefing ---
+    if (req.url === '/api/briefing' && req.method === 'GET') {
+      try {
+        const today = new Date().toISOString().slice(0, 10);
+        const monthStart = today.slice(0, 8) + '01';
+        const d7 = new Date(); d7.setDate(d7.getDate() + 7);
+        const weekEnd = d7.toISOString().slice(0, 10);
+
+        // Overdue items
+        const needsAttention = dbQuery(`SELECT ms.id, ms.task, COALESCE(a.name, '') AS appliance, ms.next_due, CAST(julianday('${today}') - julianday(ms.next_due) AS INTEGER) AS daysOverdue FROM maintenance_schedule ms LEFT JOIN appliances a ON ms.appliance_id = a.id WHERE ms.next_due < '${today}' ORDER BY ms.next_due ASC`, db);
+
+        // Today's tasks
+        const todayItems = dbQuery(`SELECT ms.id, ms.task, COALESCE(a.name, '') AS appliance FROM maintenance_schedule ms LEFT JOIN appliances a ON ms.appliance_id = a.id WHERE ms.next_due = '${today}' ORDER BY ms.task`, db);
+
+        // Stats
+        const overdueCount = needsAttention.length;
+        const upcomingCount = parseInt(dbValue(`SELECT COUNT(*) FROM maintenance_schedule WHERE next_due > '${today}' AND next_due <= '${weekEnd}'`, db)) || 0;
+        const applianceCount = parseInt(dbValue("SELECT COUNT(*) FROM appliances", db)) || 0;
+        const monthCost = parseFloat(dbValue(`SELECT COALESCE(SUM(cost), 0) FROM maintenance_log WHERE date >= '${monthStart}'`, db)) || 0;
+        const activeChecklists = parseInt(dbValue("SELECT COUNT(*) FROM seasonal_checklists WHERE is_template = 0 AND completed_at IS NULL", db)) || 0;
+
+        // Next upcoming (for greeting)
+        const nextUpcoming = dbQuery(`SELECT task, next_due FROM maintenance_schedule WHERE next_due > '${today}' ORDER BY next_due ASC LIMIT 1`, db);
+
+        const greeting = buildGreeting(authUser.displayName, {
+          overdueCount,
+          todayCount: todayItems.length,
+          upcomingCount,
+          nextUpcoming: nextUpcoming.length ? nextUpcoming[0] : null
+        });
+
+        jsonResp(res, 200, {
+          greeting,
+          needsAttention,
+          today: todayItems,
+          stats: { overdueCount, upcomingCount, applianceCount, monthCost, activeChecklists }
+        });
+      } catch (err) {
+        log.error('Briefing error', { error: err.message });
+        jsonResp(res, 500, { error: 'Failed to load briefing' });
       }
       return;
     }

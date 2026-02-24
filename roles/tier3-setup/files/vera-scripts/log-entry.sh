@@ -368,8 +368,8 @@ case "$ACTION" in
     TABLE="${1:?table required (appliances|maintenance_log|maintenance_schedule)}"
     # Validate table name to prevent injection
     case "$TABLE" in
-      appliances|maintenance_log|maintenance_schedule) ;;
-      *) echo "ERROR: Invalid table '$TABLE'. Use: appliances, maintenance_log, maintenance_schedule"; exit 1 ;;
+      appliances|maintenance_log|maintenance_schedule|seasonal_checklists|checklist_items) ;;
+      *) echo "ERROR: Invalid table '$TABLE'. Use: appliances, maintenance_log, maintenance_schedule, seasonal_checklists, checklist_items"; exit 1 ;;
     esac
 
     shift
@@ -386,7 +386,7 @@ case "$ACTION" in
       COL="$1"; VAL="$2"; shift 2
       # Validate column name against allowlist to prevent injection
       case "$COL" in
-        id|name|location|brand|model|serial_number|purchase_date|warranty_expires|notes|date|task|appliance_id|cost|contractor|interval_days|last_completed|next_due) ;;
+        id|name|location|brand|model|serial_number|purchase_date|warranty_expires|notes|date|task|appliance_id|cost|contractor|interval_days|last_completed|next_due|slug|season|is_template|template_id|year|completed_at|checklist_id|sort_order) ;;
         *) echo "ERROR: Invalid column name '$COL'"; exit 1 ;;
       esac
       # Escape single quotes
@@ -411,8 +411,121 @@ case "$ACTION" in
     echo "Deleted $MATCHES row(s) from $TABLE."
     ;;
 
+  checklist-activate)
+    SLUG="${1:?template slug required}"
+    YEAR="${2:?year required}"
+
+    # Validate year is a 4-digit number
+    if ! echo "$YEAR" | grep -qE '^[0-9]{4}$'; then
+      echo "ERROR: Year must be a 4-digit number."
+      exit 1
+    fi
+
+    SLUG_SQL="${SLUG//\'/\'\'}"
+
+    # Verify template exists
+    TEMPLATE_ROW=$("$SQLITE" "$DB" "SELECT id, name FROM seasonal_checklists WHERE slug='$SLUG_SQL' AND is_template=1;")
+    if [ -z "$TEMPLATE_ROW" ]; then
+      echo "ERROR: Template '$SLUG' not found."
+      exit 1
+    fi
+
+    TEMPLATE_ID=$(echo "$TEMPLATE_ROW" | cut -d'|' -f1)
+    TEMPLATE_NAME=$(echo "$TEMPLATE_ROW" | cut -d'|' -f2)
+
+    # Check if already activated for this year
+    EXISTING=$("$SQLITE" "$DB" "SELECT id FROM seasonal_checklists WHERE template_id=$TEMPLATE_ID AND year=$YEAR AND is_template=0;")
+    if [ -n "$EXISTING" ]; then
+      echo "Already activated: $TEMPLATE_NAME for $YEAR (ID: $EXISTING)"
+      exit 0
+    fi
+
+    # Create user instance (combine INSERT + SELECT in one process so last_insert_rowid works)
+    CHECKLIST_ID=$("$SQLITE" "$DB" "INSERT INTO seasonal_checklists (name, season, is_template, template_id, year) SELECT name, season, 0, id, $YEAR FROM seasonal_checklists WHERE id=$TEMPLATE_ID; SELECT last_insert_rowid();")
+
+    # Copy items from template
+    "$SQLITE" "$DB" "INSERT INTO checklist_items (checklist_id, task, sort_order) SELECT $CHECKLIST_ID, task, sort_order FROM checklist_items WHERE checklist_id=$TEMPLATE_ID ORDER BY sort_order;"
+
+    ITEM_COUNT=$("$SQLITE" "$DB" "SELECT COUNT(*) FROM checklist_items WHERE checklist_id=$CHECKLIST_ID;")
+    echo "Activated: $TEMPLATE_NAME for $YEAR (ID: $CHECKLIST_ID, $ITEM_COUNT items)"
+    ;;
+
+  checklist-check)
+    ITEM_ID="${1:?item ID required}"
+
+    # Validate item ID
+    if ! echo "$ITEM_ID" | grep -qE '^[0-9]+$'; then
+      echo "ERROR: Item ID must be a positive integer."
+      exit 1
+    fi
+
+    # Verify item exists and belongs to a user checklist (not a template)
+    ITEM_ROW=$("$SQLITE" "$DB" "SELECT ci.task, sc.id, sc.name, sc.is_template FROM checklist_items ci JOIN seasonal_checklists sc ON ci.checklist_id=sc.id WHERE ci.id=$ITEM_ID;")
+    if [ -z "$ITEM_ROW" ]; then
+      echo "ERROR: Item $ITEM_ID not found."
+      exit 1
+    fi
+
+    IS_TEMPLATE=$(echo "$ITEM_ROW" | cut -d'|' -f4)
+    if [ "$IS_TEMPLATE" = "1" ]; then
+      echo "ERROR: Cannot check items on a template. Activate it first."
+      exit 1
+    fi
+
+    ITEM_TASK=$(echo "$ITEM_ROW" | cut -d'|' -f1)
+    CHECKLIST_ID=$(echo "$ITEM_ROW" | cut -d'|' -f2)
+    CHECKLIST_NAME=$(echo "$ITEM_ROW" | cut -d'|' -f3)
+
+    "$SQLITE" "$DB" "UPDATE checklist_items SET completed_at=datetime('now') WHERE id=$ITEM_ID;"
+    echo "Checked: $ITEM_TASK"
+
+    # Auto-complete checklist if all items are done
+    REMAINING=$("$SQLITE" "$DB" "SELECT COUNT(*) FROM checklist_items WHERE checklist_id=$CHECKLIST_ID AND completed_at IS NULL;")
+    if [ "$REMAINING" -eq 0 ]; then
+      "$SQLITE" "$DB" "UPDATE seasonal_checklists SET completed_at=datetime('now') WHERE id=$CHECKLIST_ID;"
+      echo "Checklist complete: $CHECKLIST_NAME"
+    else
+      TOTAL=$("$SQLITE" "$DB" "SELECT COUNT(*) FROM checklist_items WHERE checklist_id=$CHECKLIST_ID;")
+      DONE=$((TOTAL - REMAINING))
+      echo "Progress: $DONE/$TOTAL"
+    fi
+    ;;
+
+  checklist-uncheck)
+    ITEM_ID="${1:?item ID required}"
+
+    # Validate item ID
+    if ! echo "$ITEM_ID" | grep -qE '^[0-9]+$'; then
+      echo "ERROR: Item ID must be a positive integer."
+      exit 1
+    fi
+
+    # Verify item exists and belongs to a user checklist
+    ITEM_ROW=$("$SQLITE" "$DB" "SELECT ci.task, sc.id, sc.is_template FROM checklist_items ci JOIN seasonal_checklists sc ON ci.checklist_id=sc.id WHERE ci.id=$ITEM_ID;")
+    if [ -z "$ITEM_ROW" ]; then
+      echo "ERROR: Item $ITEM_ID not found."
+      exit 1
+    fi
+
+    IS_TEMPLATE=$(echo "$ITEM_ROW" | cut -d'|' -f3)
+    if [ "$IS_TEMPLATE" = "1" ]; then
+      echo "ERROR: Cannot uncheck items on a template."
+      exit 1
+    fi
+
+    ITEM_TASK=$(echo "$ITEM_ROW" | cut -d'|' -f1)
+    CHECKLIST_ID=$(echo "$ITEM_ROW" | cut -d'|' -f2)
+
+    "$SQLITE" "$DB" "UPDATE checklist_items SET completed_at=NULL WHERE id=$ITEM_ID;"
+
+    # If checklist was completed, un-complete it
+    "$SQLITE" "$DB" "UPDATE seasonal_checklists SET completed_at=NULL WHERE id=$CHECKLIST_ID AND completed_at IS NOT NULL;"
+
+    echo "Unchecked: $ITEM_TASK"
+    ;;
+
   *)
-    echo "Usage: log-entry.sh {appliance|maintenance|schedule|complete|preference|preference-get|streak|undo|delete} [args...]"
+    echo "Usage: log-entry.sh {appliance|maintenance|schedule|complete|preference|preference-get|streak|undo|delete|checklist-activate|checklist-check|checklist-uncheck} [args...]"
     echo ""
     echo "  appliance <name> [location] [brand] [model] [serial] [purchase_date] [warranty] [notes]"
     echo "  maintenance <date> <task> [appliance_name] [cost] [contractor] [notes]"
@@ -423,6 +536,9 @@ case "$ACTION" in
     echo "  streak <type>              — update streak (maintenance)"
     echo "  undo                       — delete the most recently inserted row"
     echo "  delete <table> <col> <val> — delete matching rows"
+    echo "  checklist-activate <slug> <year> — activate a seasonal checklist template"
+    echo "  checklist-check <item_id>  — mark a checklist item complete"
+    echo "  checklist-uncheck <item_id> — unmark a checklist item"
     exit 1
     ;;
 esac

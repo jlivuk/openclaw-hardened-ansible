@@ -40,6 +40,19 @@ bash ~/vera-dashboard/log-entry.sh streak maintenance
 
 **You do NOT have write or edit access to files. ALL writes must go through `log-entry.sh`.**
 
+**Seasonal checklists** — use `log-entry.sh`:
+```bash
+# Activate a seasonal checklist template for a year:
+bash ~/vera-dashboard/log-entry.sh checklist-activate <slug> <year>
+# Slugs: winterization, spring-checkup, hurricane-prep, fall-fire-prevention
+
+# Mark a checklist item as complete:
+bash ~/vera-dashboard/log-entry.sh checklist-check <item_id>
+
+# Unmark a checklist item:
+bash ~/vera-dashboard/log-entry.sh checklist-uncheck <item_id>
+```
+
 **Reading data** — use `query-log.sh`:
 ```bash
 # Show today's completed maintenance + due tasks:
@@ -56,6 +69,12 @@ bash ~/vera-dashboard/query-log.sh appliance "HVAC Unit"
 
 # Show last N maintenance log entries (default 10):
 bash ~/vera-dashboard/query-log.sh history 10
+
+# List all seasonal checklist templates + active user checklists:
+bash ~/vera-dashboard/query-log.sh checklists
+
+# Show a specific checklist with item progress:
+bash ~/vera-dashboard/query-log.sh checklist <id>
 ```
 
 Examples:
@@ -174,8 +193,8 @@ Say: "You're all set! I'll keep track of everything and let you know when mainte
 - Always use the user's timezone for dates
 - When uncertain about maintenance intervals, give a range and cite TOOLS.md
 - **You do NOT have file write or edit access.** ALL data changes must go through `log-entry.sh`
-- Use `log-entry.sh` for: appliance, maintenance, schedule, complete, delete, undo, preference
-- Use `query-log.sh` for: today, overdue, upcoming, appliance details, history
+- Use `log-entry.sh` for: appliance, maintenance, schedule, complete, delete, undo, preference, checklist-activate, checklist-check, checklist-uncheck
+- Use `query-log.sh` for: today, overdue, upcoming, appliance details, history, checklists, checklist
 - Keep replies concise — 2-3 sentences for a simple log entry
 - Be proactive about suggesting maintenance schedules when appliances are registered
 - When completing a scheduled task, use `complete` (not `maintenance`) so the next_due auto-advances

@@ -33,6 +33,28 @@
   .empty-state .empty-cta { display: inline-block; background: var(--blue); color: #fff; border: none; padding: 10px 20px; border-radius: 6px; font-size: 0.85em; cursor: pointer; font-weight: 500; }
   .empty-state .empty-cta:hover { opacity: 0.9; }
   .loading { color: var(--muted); text-align: center; padding: 40px; }
+
+  /* Briefing */
+  .greeting-card { background: linear-gradient(135deg, var(--surface) 0%, rgba(57,210,192,0.08) 100%); border: 1px solid var(--border); border-radius: 10px; padding: 20px 24px; margin-bottom: 16px; }
+  .greeting-card p { font-size: 1.05em; line-height: 1.5; color: var(--text); }
+  .section-header { font-size: 0.8em; text-transform: uppercase; color: var(--muted); letter-spacing: 0.5px; margin: 20px 0 8px; font-weight: 600; }
+  .attention-item { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: flex-start; }
+  .attention-item .item-info { flex: 1; }
+  .attention-item .item-task { font-weight: 500; }
+  .attention-item .item-meta { font-size: 0.8em; color: var(--muted); margin-top: 2px; }
+  .attention-item .item-meta .overdue-days { color: var(--red); font-weight: 600; }
+  .attention-item .complete-btn { background: var(--teal); color: #000; border: none; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 0.8em; font-weight: 600; white-space: nowrap; }
+  .attention-item .complete-btn:hover { opacity: 0.9; }
+  .complete-form { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 12px; margin-top: 8px; }
+  .complete-form input { background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 6px 10px; border-radius: 4px; font-size: 0.85em; width: 100%; margin-bottom: 6px; }
+  .complete-form .form-row { display: flex; gap: 8px; margin-top: 6px; }
+  .complete-form .form-row button { padding: 6px 14px; border-radius: 4px; font-size: 0.8em; cursor: pointer; }
+  .complete-form .btn-confirm { background: var(--teal); color: #000; border: none; font-weight: 600; }
+  .complete-form .btn-cancel { background: none; border: 1px solid var(--border); color: var(--muted); }
+  .all-clear { text-align: center; padding: 20px; color: var(--green); font-size: 0.9em; }
+  .toast { position: fixed; bottom: 24px; right: 24px; background: var(--green); color: #000; padding: 10px 20px; border-radius: 8px; font-size: 0.85em; font-weight: 600; z-index: 3000; opacity: 0; transition: opacity 0.3s; }
+  .toast.show { opacity: 1; }
+
   .tab-row { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
   .tab-row button { background: var(--surface); border: 1px solid var(--border); color: var(--muted); padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 0.85em; }
   .tab-row button:hover { border-color: var(--blue); }
@@ -176,6 +198,34 @@
   .ha-settings .ha-save-msg.success { color: var(--green); }
   .ha-settings .ha-save-msg.error { color: var(--red); }
 
+  /* Checklists */
+  .checklist-section { margin-bottom: 20px; }
+  .checklist-section h3 { font-size: 0.95em; color: var(--muted); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .checklist-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px; margin-bottom: 8px; }
+  .checklist-card h4 { font-size: 0.95em; margin-bottom: 4px; }
+  .checklist-card .checklist-meta { font-size: 0.8em; color: var(--muted); margin-bottom: 8px; }
+  .checklist-card .checklist-meta .season-tag { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 0.75em; font-weight: 600; text-transform: capitalize; background: rgba(88,166,255,0.12); color: var(--blue); }
+  .progress-bar { background: var(--bg); border-radius: 4px; height: 6px; overflow: hidden; margin-bottom: 6px; }
+  .progress-bar .progress-fill { height: 100%; border-radius: 4px; background: var(--teal); transition: width 0.3s; }
+  .progress-bar .progress-fill.complete { background: var(--green); }
+  .checklist-card .card-actions { display: flex; gap: 4px; margin-top: 8px; }
+  .checklist-card .card-actions button { background: var(--bg); border: 1px solid var(--border); color: var(--muted); padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 0.75em; }
+  .checklist-card .card-actions button:hover { border-color: var(--blue); color: var(--blue); }
+  .checklist-card .card-actions button.danger:hover { border-color: var(--red); color: var(--red); }
+  .checklist-card .card-actions button.start-btn { background: var(--teal); border: none; color: #000; font-weight: 600; }
+  .checklist-card .card-actions button.start-btn:hover { opacity: 0.9; }
+  .checklist-detail-header { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+  .checklist-detail-header button { background: var(--bg); border: 1px solid var(--border); color: var(--muted); padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.8em; }
+  .checklist-detail-header button:hover { border-color: var(--blue); color: var(--blue); }
+  .checklist-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.15s; }
+  .checklist-item:hover { background: rgba(255,255,255,0.03); }
+  .checklist-item:last-child { border-bottom: none; }
+  .checklist-item .check-box { width: 20px; height: 20px; border: 2px solid var(--border); border-radius: 4px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 0.75em; color: transparent; transition: all 0.15s; }
+  .checklist-item.checked .check-box { border-color: var(--green); background: var(--green); color: #000; }
+  .checklist-item.checked .item-text { color: var(--muted); text-decoration: line-through; }
+  .item-text { font-size: 0.9em; }
+  .completed-badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 0.75em; font-weight: 600; background: rgba(63,185,80,0.15); color: var(--green); }
+
   @media (max-width: 480px) { .chat-panel { width: calc(100vw - 32px); right: 16px; bottom: 84px; } .appliance-grid { grid-template-columns: 1fr; } .ha-entity-grid { grid-template-columns: 1fr; } }
 </style>
 </head>
@@ -206,22 +256,24 @@
   <img src="/vera.png" alt="Vera" style="width:40px;height:auto;border-radius:8px">
   <div>
     <h1 style="margin:0">Vera</h1>
-    <p class="subtitle" style="margin:0">Home maintenance tracking</p>
+    <p class="subtitle" style="margin:0">Home Manager</p>
   </div>
 </div>
 
 <div class="tab-row" id="tabRow">
   <button onclick="switchTab('home')">Smart Home</button>
-  <button class="active" onclick="switchTab('overview')">Overview</button>
+  <button class="active" onclick="switchTab('briefing')">Briefing</button>
   <button onclick="switchTab('appliances')">Appliances</button>
   <button onclick="switchTab('schedule')">Schedule</button>
+  <button onclick="switchTab('checklists')">Checklists</button>
   <button onclick="switchTab('log')">Log</button>
 </div>
 
 <div id="home-tab" style="display:none"><div id="home-content"><div class="loading">Loading Home Assistant...</div></div></div>
-<div id="overview-tab"><div id="overview-content"><div class="loading">Loading summary...</div></div></div>
+<div id="briefing-tab"><div id="briefing-content"><div class="loading">Loading briefing...</div></div></div>
 <div id="appliances-tab" style="display:none"><div id="appliances-content"><div class="loading">Loading appliances...</div></div></div>
 <div id="schedule-tab" style="display:none"><div id="schedule-content"><div class="loading">Loading schedule...</div></div></div>
+<div id="checklists-tab" style="display:none"><div id="checklists-content"><div class="loading">Loading checklists...</div></div></div>
 <div id="log-tab" style="display:none"><div id="log-content"><div class="loading">Loading maintenance log...</div></div></div>
 <div id="admin-tab" style="display:none"><div id="admin-content"><div class="loading">Loading users...</div></div></div>
 
@@ -492,7 +544,7 @@ async function showDashboard() {
     document.getElementById('feedbackFab').style.display = 'flex';
   }
 
-  switchTab('overview');
+  switchTab('briefing');
   startLiveRefresh();
 
   // Check onboarding
@@ -506,10 +558,10 @@ async function showDashboard() {
 }
 
 // --- Tab Switching ---
-let currentTab = 'overview';
+let currentTab = 'briefing';
 function switchTab(tab) {
   currentTab = tab;
-  const tabs = ['home', 'overview', 'appliances', 'schedule', 'log', 'admin'];
+  const tabs = ['home', 'briefing', 'appliances', 'schedule', 'checklists', 'log', 'admin'];
   tabs.forEach(t => {
     const el = document.getElementById(t + '-tab');
     if (el) el.style.display = t === tab ? '' : 'none';
@@ -520,47 +572,123 @@ function switchTab(tab) {
     b.classList.toggle('active', match ? match[1] === tab : false);
   });
   if (tab === 'home') loadHome();
-  else if (tab === 'overview') loadOverview();
+  else if (tab === 'briefing') loadBriefing();
   else if (tab === 'appliances') loadAppliances();
   else if (tab === 'schedule') loadSchedule();
+  else if (tab === 'checklists') loadChecklists();
   else if (tab === 'log') loadLog();
   else if (tab === 'admin') loadAdmin();
 }
 
-// --- Overview Tab ---
-async function loadOverview() {
-  const el = document.getElementById('overview-content');
+// --- Briefing Tab ---
+async function loadBriefing() {
+  const el = document.getElementById('briefing-content');
   try {
-    const res = await apiFetch('/api/summary');
+    const res = await apiFetch('/api/briefing');
     const data = await res.json();
-    let html = '<div class="stat-row">';
-    html += `<div class="stat"><div class="label">Overdue</div><div class="value ${data.overdueCount > 0 ? 'red' : 'green'}">${esc(data.overdueCount)}</div></div>`;
-    html += `<div class="stat"><div class="label">Due This Week</div><div class="value blue">${esc(data.upcomingCount)}</div></div>`;
-    html += `<div class="stat"><div class="label">Appliances</div><div class="value teal">${esc(data.applianceCount)}</div></div>`;
-    html += `<div class="stat"><div class="label">Month Spend</div><div class="value orange">$${esc(Number(data.monthCost || 0).toFixed(2))}</div></div>`;
+    let html = '';
+
+    // Greeting card
+    html += '<div class="greeting-card"><p>' + esc(data.greeting) + '</p></div>';
+
+    // Needs Attention
+    html += '<div class="section-header">Needs Attention</div>';
+    if (data.needsAttention && data.needsAttention.length) {
+      for (const item of data.needsAttention) {
+        html += '<div class="attention-item" id="attn-' + esc(item.id) + '">'
+          + '<div class="item-info">'
+          + '<div class="item-task">' + esc(item.task) + '</div>'
+          + '<div class="item-meta">'
+          + (item.appliance ? esc(item.appliance) + ' &middot; ' : '')
+          + '<span class="overdue-days">' + esc(item.daysOverdue) + ' day' + (item.daysOverdue !== 1 ? 's' : '') + ' overdue</span>'
+          + '</div></div>'
+          + '<button class="complete-btn" onclick="showCompleteForm(' + esc(item.id) + ')">Complete</button>'
+          + '</div>';
+      }
+    } else {
+      html += '<div class="all-clear">All clear &mdash; nothing overdue</div>';
+    }
+
+    // Today
+    html += '<div class="section-header">Today</div>';
+    if (data.today && data.today.length) {
+      for (const item of data.today) {
+        html += '<div class="attention-item" id="attn-' + esc(item.id) + '">'
+          + '<div class="item-info">'
+          + '<div class="item-task">' + esc(item.task) + '</div>'
+          + (item.appliance ? '<div class="item-meta">' + esc(item.appliance) + '</div>' : '')
+          + '</div>'
+          + '<button class="complete-btn" onclick="showCompleteForm(' + esc(item.id) + ')">Complete</button>'
+          + '</div>';
+      }
+    } else {
+      html += '<div class="all-clear">Nothing scheduled for today</div>';
+    }
+
+    // Stats
+    html += '<div class="section-header">This Month</div>';
+    html += '<div class="stat-row">';
+    html += '<div class="stat"><div class="label">Overdue</div><div class="value ' + (data.stats.overdueCount > 0 ? 'red' : 'green') + '">' + esc(data.stats.overdueCount) + '</div></div>';
+    html += '<div class="stat"><div class="label">Due This Week</div><div class="value blue">' + esc(data.stats.upcomingCount) + '</div></div>';
+    html += '<div class="stat"><div class="label">Appliances</div><div class="value teal">' + esc(data.stats.applianceCount) + '</div></div>';
+    html += '<div class="stat"><div class="label">Month Spend</div><div class="value orange">$' + esc(Number(data.stats.monthCost || 0).toFixed(2)) + '</div></div>';
     html += '</div>';
 
-    if (data.overdueItems && data.overdueItems.length) {
-      html += '<div class="card"><h2>Overdue Tasks</h2><table><tr><th>Task</th><th>Appliance</th><th>Due</th></tr>';
-      for (const item of data.overdueItems) {
-        html += `<tr class="overdue"><td>${esc(item.task)}</td><td>${esc(item.appliance_name)}</td><td>${esc(item.next_due)}</td></tr>`;
-      }
-      html += '</table></div>';
-    }
-
-    if (data.recentCompleted && data.recentCompleted.length) {
-      html += '<div class="card"><h2>Recently Completed</h2><table><tr><th>Date</th><th>Task</th><th>Appliance</th><th>Cost</th></tr>';
-      for (const item of data.recentCompleted) {
-        html += `<tr><td>${esc(item.date)}</td><td>${esc(item.task)}</td><td>${esc(item.appliance_name)}</td><td>$${esc(Number(item.cost || 0).toFixed(2))}</td></tr>`;
-      }
-      html += '</table></div>';
-    }
-
-    if (!data.overdueItems?.length && !data.recentCompleted?.length && data.applianceCount === 0) {
-      html += '<div class="empty-state"><div class="empty-icon">[~]</div><div class="empty-heading">No data yet</div><div class="empty-text">Start by adding your first appliance, or chat with Vera to get set up.</div><button class="empty-cta" onclick="switchTab(\'appliances\')">Add Appliance</button></div>';
-    }
     el.innerHTML = html;
-  } catch { el.innerHTML = '<div class="empty">Failed to load summary</div>'; }
+  } catch { el.innerHTML = '<div class="empty">Failed to load briefing</div>'; }
+}
+
+function showCompleteForm(scheduleId) {
+  scheduleId = parseInt(scheduleId, 10);
+  if (!Number.isFinite(scheduleId)) return;
+  const container = document.getElementById('attn-' + scheduleId);
+  if (!container || container.querySelector('.complete-form')) return;
+  const btn = container.querySelector('.complete-btn');
+  if (btn) btn.style.display = 'none';
+  const form = document.createElement('div');
+  form.className = 'complete-form';
+  form.innerHTML = '<input type="number" id="cost-' + scheduleId + '" placeholder="Cost ($0.00)" min="0" step="0.01" value="0">'
+    + '<input type="text" id="notes-' + scheduleId + '" placeholder="Notes (optional)" maxlength="1000">'
+    + '<div class="form-row">'
+    + '<button class="btn-confirm" onclick="submitComplete(' + scheduleId + ')">Confirm</button>'
+    + '<button class="btn-cancel" onclick="cancelComplete(' + scheduleId + ')">Cancel</button>'
+    + '</div>';
+  container.appendChild(form);
+}
+
+function cancelComplete(scheduleId) {
+  scheduleId = parseInt(scheduleId, 10);
+  if (!Number.isFinite(scheduleId)) return;
+  const container = document.getElementById('attn-' + scheduleId);
+  if (!container) return;
+  const form = container.querySelector('.complete-form');
+  if (form) form.remove();
+  const btn = container.querySelector('.complete-btn');
+  if (btn) btn.style.display = '';
+}
+
+async function submitComplete(scheduleId) {
+  scheduleId = parseInt(scheduleId, 10);
+  if (!Number.isFinite(scheduleId)) return;
+  const cost = parseFloat(document.getElementById('cost-' + scheduleId).value) || 0;
+  const notes = (document.getElementById('notes-' + scheduleId).value || '').trim();
+  try {
+    const res = await apiFetch('/api/schedule/' + scheduleId + '/complete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cost, notes })
+    });
+    if (!res.ok) { cancelComplete(scheduleId); return; }
+    showToast('Completed!');
+    loadBriefing();
+  } catch { cancelComplete(scheduleId); }
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2000);
 }
 
 // --- Appliances Tab ---
@@ -636,6 +764,152 @@ async function loadLog() {
     }
     el.innerHTML = html;
   } catch { el.innerHTML = '<div class="empty">Failed to load maintenance log</div>'; }
+}
+
+// --- Checklists Tab ---
+let checklistDetailId = null;
+
+async function loadChecklists() {
+  if (checklistDetailId) { loadChecklistDetail(checklistDetailId); return; }
+  const el = document.getElementById('checklists-content');
+  try {
+    const res = await apiFetch('/api/checklists');
+    const data = await res.json();
+    const templates = data.templates || [];
+    const active = data.active || [];
+    const role = localStorage.getItem('vera_role') || 'user';
+    let html = '';
+
+    // Active checklists — all values escaped via esc() to prevent XSS
+    if (active.length) {
+      html += '<div class="checklist-section"><h3>Your Checklists</h3>';
+      for (const c of active) {
+        const total = c.total_items || 0;
+        const done = c.completed_items || 0;
+        const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+        const isComplete = !!c.completed_at;
+        html += '<div class="checklist-card">'
+          + '<h4>' + esc(c.name) + ' <span style="color:var(--muted);font-weight:400;font-size:0.85em">(' + esc(c.year) + ')</span></h4>'
+          + '<div class="checklist-meta"><span class="season-tag">' + esc(c.season) + '</span> ' + (isComplete ? '<span class="completed-badge">Complete</span>' : esc(done) + '/' + esc(total) + ' items') + '</div>'
+          + '<div class="progress-bar"><div class="progress-fill' + (isComplete ? ' complete' : '') + '" style="width:' + pct + '%"></div></div>'
+          + '<div class="card-actions">'
+          + '<button onclick="viewChecklist(' + parseInt(c.id) + ')">View</button>'
+          + (role !== 'readonly' ? '<button class="danger" onclick="deleteChecklist(' + parseInt(c.id) + ',\'' + esc(c.name) + '\')">Delete</button>' : '')
+          + '</div></div>';
+      }
+      html += '</div>';
+    }
+
+    // Templates — all values escaped via esc()
+    if (templates.length) {
+      html += '<div class="checklist-section"><h3>Available Templates</h3>';
+      for (const t of templates) {
+        html += '<div class="checklist-card">'
+          + '<h4>' + esc(t.name) + '</h4>'
+          + '<div class="checklist-meta"><span class="season-tag">' + esc(t.season) + '</span> ' + esc(t.item_count) + ' items</div>'
+          + '<div class="card-actions">'
+          + '<button onclick="viewChecklist(' + parseInt(t.id) + ')">Preview</button>'
+          + (role !== 'readonly' ? '<button class="start-btn" onclick="activateChecklist(\'' + esc(t.slug) + '\',\'' + esc(t.name) + '\')">Start ' + new Date().getFullYear() + '</button>' : '')
+          + '</div></div>';
+      }
+      html += '</div>';
+    }
+
+    if (!active.length && !templates.length) {
+      html = '<div class="empty-state"><div class="empty-icon">[~]</div><div class="empty-heading">No checklists</div><div class="empty-text">Seasonal checklists will appear here once the database is initialized with templates.</div></div>';
+    }
+
+    el.innerHTML = html;
+  } catch { el.innerHTML = '<div class="empty">Failed to load checklists</div>'; }
+}
+
+function viewChecklist(id) {
+  checklistDetailId = id;
+  loadChecklistDetail(id);
+}
+
+function backToChecklists() {
+  checklistDetailId = null;
+  loadChecklists();
+}
+
+async function loadChecklistDetail(id) {
+  const el = document.getElementById('checklists-content');
+  try {
+    const res = await apiFetch('/api/checklists/' + id);
+    const data = await res.json();
+    const cl = data.checklist;
+    const items = data.items || [];
+    const role = localStorage.getItem('vera_role') || 'user';
+    const isTemplate = !!cl.is_template;
+    const total = items.length;
+    const done = items.filter(i => i.completed_at).length;
+    const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+
+    // All dynamic content escaped via esc() for XSS prevention
+    let html = '<div class="checklist-detail-header">';
+    html += '<button onclick="backToChecklists()">&larr; Back</button>';
+    html += '<h2 style="margin:0;font-size:1.1em">' + esc(cl.name) + (cl.year ? ' (' + esc(cl.year) + ')' : '') + '</h2>';
+    if (!isTemplate && role !== 'readonly') {
+      html += '<button class="danger" style="margin-left:auto" onclick="deleteChecklist(' + parseInt(cl.id) + ',\'' + esc(cl.name) + '\')">Delete</button>';
+    }
+    html += '</div>';
+
+    if (!isTemplate) {
+      html += '<div style="margin-bottom:12px;font-size:0.85em;color:var(--muted)">' + esc(done) + '/' + esc(total) + ' complete (' + pct + '%) ' + (cl.completed_at ? '<span class="completed-badge">Complete</span>' : '') + '</div>';
+      html += '<div class="progress-bar" style="margin-bottom:16px"><div class="progress-fill' + (cl.completed_at ? ' complete' : '') + '" style="width:' + pct + '%"></div></div>';
+    } else {
+      html += '<div style="margin-bottom:12px;font-size:0.85em;color:var(--muted)">Template &mdash; ' + esc(total) + ' items &mdash; <span class="season-tag">' + esc(cl.season) + '</span></div>';
+    }
+
+    html += '<div class="card">';
+    for (const item of items) {
+      const checked = !!item.completed_at;
+      const clickable = !isTemplate && role !== 'readonly';
+      html += '<div class="checklist-item' + (checked ? ' checked' : '') + '"' + (clickable ? ' onclick="toggleChecklistItem(' + parseInt(cl.id) + ',' + parseInt(item.id) + ',' + checked + ')"' : '') + '>'
+        + '<div class="check-box">' + (checked ? '&#10003;' : '') + '</div>'
+        + '<span class="item-text">' + esc(item.task) + '</span>'
+        + '</div>';
+    }
+    html += '</div>';
+
+    el.innerHTML = html;
+  } catch { el.innerHTML = '<div class="empty">Failed to load checklist</div>'; }
+}
+
+async function toggleChecklistItem(checklistId, itemId, isChecked) {
+  const action = isChecked ? 'uncheck' : 'check';
+  try {
+    await apiFetch('/api/checklists/' + checklistId + '/' + action + '/' + itemId, { method: 'POST' });
+    loadChecklistDetail(checklistId);
+  } catch {}
+}
+
+async function activateChecklist(slug, name) {
+  const year = new Date().getFullYear();
+  try {
+    const res = await apiFetch('/api/checklists/activate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ slug, year })
+    });
+    const data = await res.json();
+    if (res.ok && data.id) {
+      checklistDetailId = null;
+      loadChecklists();
+    }
+  } catch {}
+}
+
+async function deleteChecklist(id, name) {
+  if (!confirm('Delete checklist "' + name + '"?')) return;
+  try {
+    const res = await apiFetch('/api/checklists/' + id, { method: 'DELETE' });
+    if (res.ok) {
+      checklistDetailId = null;
+      loadChecklists();
+    }
+  } catch {}
 }
 
 // --- Home Tab (Home Assistant) ---
@@ -856,7 +1130,7 @@ async function submitAppliance() {
     if (!res.ok) { const d = await res.json(); msg.className = 'modal-msg error'; msg.textContent = d.error || 'Failed'; msg.style.display = ''; return; }
     closeApplianceModal();
     loadAppliances();
-    if (currentTab === 'overview') loadOverview();
+    if (currentTab === 'briefing') loadBriefing();
   } catch { msg.className = 'modal-msg error'; msg.textContent = 'Connection error'; msg.style.display = ''; }
 }
 
@@ -865,7 +1139,7 @@ async function deleteAppliance(id, name) {
   try {
     await apiFetch('/api/appliances/' + id, { method: 'DELETE' });
     loadAppliances();
-    if (currentTab === 'overview') loadOverview();
+    if (currentTab === 'briefing') loadBriefing();
   } catch {}
 }
 
@@ -908,7 +1182,7 @@ async function submitSchedule() {
     if (!res.ok) { const d = await res.json(); msg.className = 'modal-msg error'; msg.textContent = d.error || 'Failed'; msg.style.display = ''; return; }
     closeScheduleModal();
     loadSchedule();
-    if (currentTab === 'overview') loadOverview();
+    if (currentTab === 'briefing') loadBriefing();
   } catch { msg.className = 'modal-msg error'; msg.textContent = 'Connection error'; msg.style.display = ''; }
 }
 
@@ -917,7 +1191,7 @@ async function deleteSchedule(id) {
   try {
     await apiFetch('/api/schedule/' + id, { method: 'DELETE' });
     loadSchedule();
-    if (currentTab === 'overview') loadOverview();
+    if (currentTab === 'briefing') loadBriefing();
   } catch {}
 }
 
@@ -961,7 +1235,7 @@ async function submitMaintenance() {
     if (!res.ok) { const d = await res.json(); msg.className = 'modal-msg error'; msg.textContent = d.error || 'Failed'; msg.style.display = ''; return; }
     closeMaintenanceModal();
     loadLog();
-    if (currentTab === 'overview') loadOverview();
+    if (currentTab === 'briefing') loadBriefing();
   } catch { msg.className = 'modal-msg error'; msg.textContent = 'Connection error'; msg.style.display = ''; }
 }
 
@@ -1209,9 +1483,10 @@ function startLiveRefresh() {
   try {
     sseSource = new EventSource('/api/events?token=' + encodeURIComponent(token));
     sseSource.addEventListener('data-updated', () => {
-      if (currentTab === 'overview') loadOverview();
+      if (currentTab === 'briefing') loadBriefing();
       else if (currentTab === 'appliances') loadAppliances();
       else if (currentTab === 'schedule') loadSchedule();
+      else if (currentTab === 'checklists') loadChecklists();
       else if (currentTab === 'log') loadLog();
     });
     sseSource.onerror = () => { stopLiveRefresh(); setTimeout(startLiveRefresh, 5000); };
@@ -1241,5 +1516,6 @@ document.getElementById('loginPass').addEventListener('keydown', e => { if (e.ke
 // --- Auto-login if token exists ---
 if (getToken()) showDashboard();
 </script>
+<div class="toast" id="toast"></div>
 </body>
 </html>

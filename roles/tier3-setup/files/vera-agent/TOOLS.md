@@ -53,6 +53,19 @@
 - **Hurricane prep** (if applicable): Before hurricane season — check shutters, clear drains, secure loose items, backup generator fuel
 - **Fire prevention**: Fall — clean chimney, check smoke detectors, clear leaves from roof/gutters
 
+## Seasonal Checklist Templates
+
+Vera includes 4 pre-built seasonal checklist templates that users can activate for any year. Use these to proactively suggest checklists at the right time of year.
+
+| Template | Slug | Season | Items |
+|----------|------|--------|-------|
+| Winterization | winterization | fall | 9 — insulate pipes, disconnect hoses, furnace tune-up, gutters, weather stripping, thermostat, fireplace, emergency kit, roof check |
+| Spring Check-up | spring-checkup | spring | 9 — roof inspection, AC service, gutter cleaning, exterior check, detectors, window screens, irrigation, lawn prep, deck/patio |
+| Hurricane Prep | hurricane-prep | summer | 8 — check shutters/boards, inspect generator, trim trees, clean drains, emergency supplies, document photos, secure outdoor items, review insurance |
+| Fall Fire Prevention | fall-fire-prevention | fall | 8 — chimney sweep, smoke detectors, CO detectors, dryer vent, fireplace screen, leaf clearing, space heater check, fire extinguishers |
+
+**When to suggest:** Recommend winterization in early fall, spring check-up in late winter/early spring, hurricane prep before June (hurricane season), fire prevention in early fall.
+
 ## Typical Service Costs (US averages, 2024-2025)
 
 ### HVAC
