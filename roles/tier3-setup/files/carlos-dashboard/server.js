@@ -823,7 +823,7 @@ const server = http.createServer(async (req, res) => {
     const { db, memoryDir } = userPaths(authUser.username);
 
     // DELETE /api/entry/:table/:id — delete a single entry by ID
-    const deleteMatch = req.url.match(/^\/api\/entry\/(meals|exercise|weight|sleep)\/(\d+)$/);
+    const deleteMatch = req.url.match(/^\/api\/entry\/(meals|exercise|weight|sleep|hydration)\/(\d+)$/);
     if (deleteMatch && req.method === 'DELETE') {
       if (!hasMinRole(userRole, 'user')) {
         jsonResp(res, 403, { error: 'Insufficient permissions' });
@@ -1076,7 +1076,7 @@ const server = http.createServer(async (req, res) => {
       const date = logMatch[1];
       try {
         const meals = dbQuery(`SELECT id, time, meal, calories, protein, carbs, fat, notes FROM meals WHERE date='${date}' ORDER BY CASE WHEN time LIKE '%AM' THEN 0 ELSE 1 END, CAST(REPLACE(SUBSTR(time,1,INSTR(time,':')-1),'12','0') AS INTEGER) + CASE WHEN time LIKE '%PM' THEN 12 ELSE 0 END, SUBSTR(time,INSTR(time,':')+1,2)`, db);
-        const hydration = dbQuery(`SELECT time, glass_num FROM hydration WHERE date='${date}' ORDER BY glass_num`, db);
+        const hydration = dbQuery(`SELECT id, time, glass_num FROM hydration WHERE date='${date}' ORDER BY glass_num`, db);
         const exercise = dbQuery(`SELECT id, time, activity, duration, calories_burned, notes, source, distance, avg_heart_rate FROM exercise WHERE date='${date}' ORDER BY CASE WHEN time LIKE '%AM' THEN 0 ELSE 1 END, CAST(REPLACE(SUBSTR(time,1,INSTR(time,':')-1),'12','0') AS INTEGER) + CASE WHEN time LIKE '%PM' THEN 12 ELSE 0 END, SUBSTR(time,INSTR(time,':')+1,2)`, db);
 
         const sleepRows = dbQuery(`SELECT duration_minutes, notes, source FROM sleep WHERE date='${date}'`, db);

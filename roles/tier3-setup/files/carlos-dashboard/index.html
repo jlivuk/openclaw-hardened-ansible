@@ -1761,7 +1761,8 @@ function renderDay(date, data) {
     html += `</table>`;
   }
   if (hydration.length) {
-    html += `<h3>Hydration</h3><div style="font-size:0.9em;color:var(--blue)">${hydration.length} glasses</div>`;
+    const lastH = hydration[hydration.length - 1];
+    html += `<h3>Hydration</h3><div style="font-size:0.9em;color:var(--blue)">${hydration.length} glasses${lastH && lastH.id ? ` <button class="delete-btn" onclick="deleteEntry('hydration',${lastH.id})" title="Remove last glass">🗑</button>` : ''}</div>`;
   }
   if (!meals.length && !exercises.length && !hydration.length) html += `<p class="empty">No entries logged yet</p>`;
   html += `</div>`;
