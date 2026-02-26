@@ -1,8 +1,11 @@
 #!/bin/bash
 # OpenClaw Hardened Monitor
 # Automated security check script (Hardening Guide Step 18 & 23)
+# Sends Telegram alert when findings are detected.
 
 REPORT_FILE="/home/openclaw/openclaw-docker/security-audit-$(date +%Y%m%d).log"
+FINDINGS=""
+
 echo "=== OpenClaw Security Audit $(date) ===" > "$REPORT_FILE"
 
 # 1. Run OpenClaw Internal Audit (Step 13)
@@ -11,23 +14,59 @@ podman exec openclaw-agent openclaw security audit --deep >> "$REPORT_FILE" 2>&1
 
 # 2. Check for Prompt Injection Patterns (Step 18)
 echo "[*] Scanning for Prompt Injection Attempts (Last 7 days)..." >> "$REPORT_FILE"
-find /home/openclaw/openclaw-docker/openclaw-data/agents -name "*.jsonl" -mtime -7 -exec 
-  grep -iH "IGNORE PREVIOUS\|SYSTEM:\|DISREGARD\|NEW INSTRUCTIONS" {} \; 
+INJECTION_HITS=$(find /home/openclaw/openclaw-docker/openclaw-data/agents -name "*.jsonl" -mtime -7 -exec \
+  grep -liH "IGNORE PREVIOUS\|SYSTEM:\|DISREGARD\|NEW INSTRUCTIONS" {} \; 2>/dev/null | wc -l)
+find /home/openclaw/openclaw-docker/openclaw-data/agents -name "*.jsonl" -mtime -7 -exec \
+  grep -iH "IGNORE PREVIOUS\|SYSTEM:\|DISREGARD\|NEW INSTRUCTIONS" {} \; \
   >> "$REPORT_FILE" 2>/dev/null
+if [ "$INJECTION_HITS" -gt 0 ]; then
+  FINDINGS="${FINDINGS}⚠️ Prompt injection patterns: ${INJECTION_HITS} file(s)\n"
+fi
 
 # 3. Check for Dangerous Command Execution (Step 18)
 echo "[*] Scanning for Dangerous Command Patterns..." >> "$REPORT_FILE"
-find /home/openclaw/openclaw-docker/openclaw-data/agents -name "*.jsonl" -mtime -7 -exec 
-  grep -iH "rm -rf\|curl.*http\|wget\|nc \|bash -c\|/etc/passwd" {} \; 
+DANGEROUS_HITS=$(find /home/openclaw/openclaw-docker/openclaw-data/agents -name "*.jsonl" -mtime -7 -exec \
+  grep -liH "rm -rf\|curl.*http\|wget\|nc \|bash -c\|/etc/passwd" {} \; 2>/dev/null | wc -l)
+find /home/openclaw/openclaw-docker/openclaw-data/agents -name "*.jsonl" -mtime -7 -exec \
+  grep -iH "rm -rf\|curl.*http\|wget\|nc \|bash -c\|/etc/passwd" {} \; \
   >> "$REPORT_FILE" 2>/dev/null
+if [ "$DANGEROUS_HITS" -gt 0 ]; then
+  FINDINGS="${FINDINGS}⚠️ Dangerous command patterns: ${DANGEROUS_HITS} file(s)\n"
+fi
 
 # 4. Scan Squid Logs for Denied Requests (Step 23)
 echo "[*] Scanning Proxy logs for blocked domains..." >> "$REPORT_FILE"
+DENIED_COUNT=$(podman logs openclaw-squid 2>&1 | grep -c "TCP_DENIED")
 podman logs openclaw-squid 2>&1 | grep "TCP_DENIED" | tail -n 20 >> "$REPORT_FILE"
+if [ "$DENIED_COUNT" -gt 0 ]; then
+  FINDINGS="${FINDINGS}🚫 Blocked proxy requests: ${DENIED_COUNT}\n"
+fi
 
 # 5. Verify Firewall Status
 echo "[*] Checking Firewall State..." >> "$REPORT_FILE"
-sudo ufw status verbose | grep "18789" >> "$REPORT_FILE"
+UFW_STATUS=$(sudo ufw status verbose 2>&1)
+echo "$UFW_STATUS" | grep "18789" >> "$REPORT_FILE"
+if ! echo "$UFW_STATUS" | grep -q "Status: active"; then
+  FINDINGS="${FINDINGS}🔥 UFW firewall is NOT active!\n"
+fi
 
 echo "=== Audit Complete ===" >> "$REPORT_FILE"
 echo "Report saved to: $REPORT_FILE"
+
+# --- Telegram Alert ---
+BOT_TOKEN=$(cat /home/openclaw/.telegram-token 2>/dev/null)
+CHAT_ID=$(cat /home/openclaw/.telegram-chat-id 2>/dev/null)
+
+if [ -n "$BOT_TOKEN" ] && [ -n "$CHAT_ID" ]; then
+  if [ -n "$FINDINGS" ]; then
+    MSG="🔒 *OpenClaw Security Audit*
+$(date '+%b %d, %Y')
+
+${FINDINGS}
+Full report: ${REPORT_FILE}"
+    curl -s -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
+      -d "chat_id=${CHAT_ID}" \
+      -d "parse_mode=Markdown" \
+      -d "text=${MSG}" > /dev/null 2>&1
+  fi
+fi

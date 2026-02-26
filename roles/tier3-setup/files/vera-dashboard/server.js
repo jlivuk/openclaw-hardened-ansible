@@ -1,3 +1,15 @@
+// Sentry error tracking (graceful: null when package missing or no DSN)
+let Sentry;
+try {
+  Sentry = require('@sentry/node');
+  if (process.env.SENTRY_DSN) {
+    Sentry.init({
+      dsn: process.env.SENTRY_DSN,
+      environment: process.env.NODE_ENV || 'production',
+    });
+  } else { Sentry = null; }
+} catch { Sentry = null; }
+
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
@@ -292,8 +304,13 @@ const server = http.createServer(async (req, res) => {
   // --- Static files ---
   if (req.url === '/' || req.url === '/index.html') {
     if (cachedDashboard) {
+      let html = cachedDashboard;
+      if (Sentry && process.env.SENTRY_DSN) {
+        html = html.replace('</head>',
+          `<script>window.__SENTRY_DSN__="${process.env.SENTRY_DSN}";</script></head>`);
+      }
       res.writeHead(200, { 'Content-Type': 'text/html' });
-      res.end(cachedDashboard);
+      res.end(html);
     } else {
       res.writeHead(500);
       res.end('Dashboard not found');
@@ -1334,11 +1351,11 @@ const server = http.createServer(async (req, res) => {
 
         if (WebSocketImpl === globalThis.WebSocket) {
           ws.onmessage = onMsg;
-          ws.onerror = () => { clearTimeout(chatTimeout); sseEnd('error', { error: 'Could not reach Vera. Is OpenClaw running?' }); };
+          ws.onerror = (e) => { clearTimeout(chatTimeout); if (Sentry) Sentry.captureException(e.error || new Error('WebSocket gateway error')); sseEnd('error', { error: 'Could not reach Vera. Is OpenClaw running?' }); };
           ws.onclose = () => { clearTimeout(chatTimeout); sseEnd('error', { error: 'Gateway connection closed unexpectedly.' }); };
         } else {
           ws.on('message', onMsg);
-          ws.on('error', () => { clearTimeout(chatTimeout); sseEnd('error', { error: 'Could not reach Vera. Is OpenClaw running?' }); });
+          ws.on('error', (err) => { clearTimeout(chatTimeout); if (Sentry) Sentry.captureException(err); sseEnd('error', { error: 'Could not reach Vera. Is OpenClaw running?' }); });
           ws.on('close', () => { clearTimeout(chatTimeout); sseEnd('error', { error: 'Gateway connection closed unexpectedly.' }); });
         }
       } catch (err) {
@@ -1467,4 +1484,15 @@ const server = http.createServer(async (req, res) => {
 const HOST = process.env.VERA_HOST || '0.0.0.0';
 server.listen(PORT, HOST, () => {
   log.info('Vera dashboard started', { host: HOST, port: PORT, dataDir: DATA_DIR, memoryBase: MEMORY_BASE });
+});
+
+// Process-level error handlers (Sentry capture + structured log)
+process.on('uncaughtException', (err) => {
+  log.error('Uncaught exception', { error: err.message, stack: err.stack });
+  if (Sentry) { Sentry.captureException(err); Sentry.flush(2000).then(() => process.exit(1)); }
+  else process.exit(1);
+});
+process.on('unhandledRejection', (reason) => {
+  log.error('Unhandled rejection', { error: String(reason) });
+  if (Sentry) Sentry.captureException(reason);
 });

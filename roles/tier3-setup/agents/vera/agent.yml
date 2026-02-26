@@ -10,6 +10,8 @@ dashboard:
   extra_env:
     VERA_DATA_DIR: /home/node/vera-dashboard
     VERA_MEMORY_BASE: /home/node/.openclaw/workspace-vera/memory
+    NODE_ENV: production
+    SENTRY_DSN: https://7bd6efc394c0c50793096f2f886cf245@o4510937277005824.ingest.de.sentry.io/4510951279362128
 
 # Paths (relative to docker_dir on the Pi)
 workspace: workspace-vera
@@ -44,7 +46,9 @@ exec_approvals:
     - pattern: /usr/bin/wc
 
 # Extra domains for Squid allowlist
-allowed_domains: []
+allowed_domains:
+  - .sentry.io
+  - .sentry-cdn.com
 
 # Extra volume mounts on the openclaw gateway container
 openclaw_volumes:

@@ -4,6 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Vera — Home Maintenance</title>
+<script src="https://browser.sentry-cdn.com/8.x/bundle.min.js" crossorigin="anonymous"></script>
+<script>
+if (window.Sentry && window.__SENTRY_DSN__) {
+  Sentry.init({ dsn: window.__SENTRY_DSN__, environment: 'production' });
+}
+</script>
 <style>
   :root { --bg: #0d1117; --surface: #161b22; --border: #30363d; --text: #e6edf3; --muted: #8b949e; --green: #3fb950; --blue: #58a6ff; --orange: #d29922; --red: #f85149; --teal: #39d2c0; }
   * { margin: 0; padding: 0; box-sizing: border-box; }
